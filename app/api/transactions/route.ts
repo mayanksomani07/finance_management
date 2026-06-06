@@ -1,0 +1,104 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@/lib/supabase';
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const type = searchParams.get('type');
+    const from = searchParams.get('from');
+    const to = searchParams.get('to');
+    const limit = parseInt(searchParams.get('limit') || '50', 10);
+
+    const supabase = createServerClient();
+    let query = supabase
+      .from('transactions')
+      .select('*')
+      .order('transaction_at', { ascending: false })
+      .limit(limit);
+
+    if (type === 'income' || type === 'expense') {
+      query = query.eq('type', type);
+    }
+
+    if (from) {
+      query = query.gte('transaction_at', from);
+    }
+
+    if (to) {
+      // Add one day to include the full end date
+      const toDate = new Date(to);
+      toDate.setDate(toDate.getDate() + 1);
+      query = query.lt('transaction_at', toDate.toISOString());
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('DB error:', error);
+      return NextResponse.json({ success: false, error: 'Database error' }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, transactions: data });
+  } catch (err) {
+    console.error('Transactions GET error:', err);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const {
+      amount,
+      type,
+      category,
+      description,
+      transaction_at,
+      source,
+      account_last4,
+    } = body as {
+      amount?: number;
+      type?: string;
+      category?: string;
+      description?: string;
+      transaction_at?: string;
+      source?: string;
+      account_last4?: string;
+    };
+
+    if (!amount || typeof amount !== 'number' || amount <= 0) {
+      return NextResponse.json({ success: false, error: 'Valid amount is required' }, { status: 400 });
+    }
+
+    if (type !== 'income' && type !== 'expense') {
+      return NextResponse.json({ success: false, error: 'type must be income or expense' }, { status: 400 });
+    }
+
+    const supabase = createServerClient();
+    const { data, error } = await supabase
+      .from('transactions')
+      .insert({
+        transaction_at: transaction_at || new Date().toISOString(),
+        amount,
+        type,
+        category: category || null,
+        description: description || null,
+        source: source || 'manual',
+        account_last4: account_last4 || null,
+        raw_text: null,
+        balance_after: null,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('DB error:', error);
+      return NextResponse.json({ success: false, error: 'Database error' }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, transaction: data }, { status: 201 });
+  } catch (err) {
+    console.error('Transactions POST error:', err);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+  }
+}

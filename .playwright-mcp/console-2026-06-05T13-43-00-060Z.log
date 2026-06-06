@@ -1,0 +1,13 @@
+[     355ms] [LOG] 
+%cStop !  font-weight:bold; font: 3rem Arial; color: red; text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black; @ :0
+[     355ms] [LOG] 
+%cThis is a browser feature intended for developers. If someone told you to copy-paste something here to enable a CoinDCX feature or “hack” someone’s account, it is a scam and will give them access to your CoinDCX account. font-weight:normal; font: 1rem Arial; color: #7F7F7F; @ :0
+[     355ms] [LOG] 
+%cSee https://careers.coindcx.com/#jobs-list for career opportunities with CoinDCX. font-weight:normal; font: 1rem Arial; color: #7F7F7F; @ :0
+[    1602ms] [ERROR] The script has an unsupported MIME type ('text/html'). @ :0
+[    1714ms] Failed to register a ServiceWorker for scope ('https://coindcx.com/') with script ('https://coindcx.com/ngsw-worker.js'): The script has an unsupported MIME type ('text/html').
+[    1690ms] [LOG] DCXStreamService.dcxSocket:: [object Object] @ https://coindcx.com/main-5QEPT4YI.js:367
+[    1690ms] [LOG] DCXStreamService.dcxSocket.id:: TodyhsxnyKujHim3ANdT @ https://coindcx.com/main-5QEPT4YI.js:367
+[    1907ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ https://account.coindcx.com/login:0
+[    2782ms] [ERROR] Failed to load resource: the server responded with a status of 422 () @ https://api.coindcx.com/api/v2/users/get_anti_phishing_image?email=d4dC7%2FK%2B%2BS7%2BiMcFTiMXrgpHsnBRyNL1a17W0lLfRi8a7ZDu0c7jnbFkKjnEuOqDYfYyY%2B2shr4GEQWIVja6LRIQZFCMaFluZ3Y6XRfBoIg%2FpxYuUC%2FxFVmMqDVZDvG8m5T24ez9aFw%2BZhxNfxg6SnwQBzvUDZwitfpS0XqIVt5vtFobVbBkcZlX%2BETO7%2Bh2B%2BzRsbvQYLo6G9gq70xdZaIrSF2CIgVI9Xk4u%2BZXF9449wdc98EGTh4et65ffvuQ2M1t4yMyrVgMJSE2Nj4jweYweIITI9sNW3UQvm23DhnlY5oionp1o5w6FU8jlrQ2vOEBcOrtX5js%2Fnc%2FIgPB9QFBs7xBuXH%2BeLR6fUPNUsevvNMItU1I0fto3%2FMla5RfgCBImoNC6nTUsQOGOAsN49gY8NyxfVxtq22gfCQLc5RLGUidEBea5M1rbrXnQKGz7cXqBQ%2BeyPKl0cri%2BDWzcnqkElSi1Q9DRqOj3JmVgPwXkcB%2FmgPhNJ9TfJreYXM5A0ZVpmjNxaUcG9V1BSUfMptfaZGiGumFHUNvnqH%2BQL8Yxcx4o%2B16W41OFrZA%2Bic%2FGQDNrS%2F9Je7%2BRY9N12YHTK0C4srGwm0BPKnWupaL72%2B2sFAjIQGJkhYPpOyNpL1skH3I2UXMvz4IVlZL8M3wlJ17XFeLCf8rUbs9Y8XdvF0%3D&piie=true:0
+[    7098ms] [LOG] [batch] MIXPANEL REQUEST: [Object, Object] @ https://account.coindcx.com/_next/static/chunks/pages/_app-a5f58b7545c11fff.js:10
