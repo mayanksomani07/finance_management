@@ -27,6 +27,10 @@ export function createServerClient() {
       autoRefreshToken: false,
       persistSession: false,
     },
+    global: {
+      // Disable Next.js fetch cache so token reads always hit Supabase fresh
+      fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }),
+    },
   });
 }
 

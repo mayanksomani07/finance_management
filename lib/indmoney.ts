@@ -5,12 +5,18 @@ import { createServerClient } from './supabase';
 
 // Prefix keys by env so localhost and prod don't overwrite each other in shared Supabase
 const ENV = process.env.NEXT_PUBLIC_APP_ENV ?? (process.env.NODE_ENV === 'production' ? 'prod' : 'dev');
-const TOKEN_KEY_ACCESS  = `_indmoney_access_token_${ENV}`;
-const TOKEN_KEY_REFRESH = `_indmoney_refresh_token_${ENV}`;
-const TOKEN_KEY_EXPIRY  = `_indmoney_token_expiry_${ENV}`;
+const TOKEN_KEY_ACCESS          = `_indmoney_access_token_${ENV}`;
+const TOKEN_KEY_REFRESH         = `_indmoney_refresh_token_${ENV}`;
+const TOKEN_KEY_EXPIRY          = `_indmoney_token_expiry_${ENV}`;
+const TOKEN_KEY_REFRESH_EXPIRY  = `_indmoney_refresh_token_expiry_${ENV}`;
 const TOKEN_KEY_CLIENT_ID       = `_indmoney_client_id_${ENV}`;
 const TOKEN_KEY_CLIENT_SECRET   = `_indmoney_client_secret_${ENV}`;
 const TOKEN_KEY_CLIENT_REDIRECT = `_indmoney_client_redirect_${ENV}`;
+
+// How long we consider a refresh token valid if IndMoney doesn't tell us
+const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+// Minimum access token lifetime we'll use even if IndMoney says shorter
+const MIN_ACCESS_TOKEN_TTL_S = 24 * 60 * 60; // 24 hours
 
 async function getStoredValue(key: string): Promise<string | null> {
   const db = createServerClient();
@@ -115,12 +121,21 @@ export async function exchangeCode(
   return res.json();
 }
 
-export async function storeTokens(accessToken: string, refreshToken: string, expiresIn: number): Promise<void> {
-  const expiry = String(Date.now() + expiresIn * 1000);
+export async function storeTokens(
+  accessToken: string,
+  refreshToken: string,
+  expiresIn: number,
+  refreshExpiresIn?: number,
+): Promise<void> {
+  // Use at least MIN_ACCESS_TOKEN_TTL_S so IndMoney's short-lived tokens don't force constant re-auth
+  const effectiveExpiry = Math.max(expiresIn, MIN_ACCESS_TOKEN_TTL_S);
+  const expiry = String(Date.now() + effectiveExpiry * 1000);
+  const refreshExpiry = String(Date.now() + (refreshExpiresIn ? refreshExpiresIn * 1000 : REFRESH_TOKEN_TTL_MS));
   await Promise.all([
     setStoredValue(TOKEN_KEY_ACCESS, accessToken),
     setStoredValue(TOKEN_KEY_REFRESH, refreshToken),
     setStoredValue(TOKEN_KEY_EXPIRY, expiry),
+    setStoredValue(TOKEN_KEY_REFRESH_EXPIRY, refreshExpiry),
   ]);
 }
 
@@ -144,10 +159,11 @@ async function refreshAccessToken(clientId: string, clientSecret: string, refres
 // ─── Get a valid access token (auto-refresh) ─────────────────────────────────
 
 export async function getValidAccessToken(): Promise<string> {
-  const [access, refresh, expiryStr, clientId, clientSecret] = await Promise.all([
+  const [access, refresh, expiryStr, refreshExpiryStr, clientId, clientSecret] = await Promise.all([
     getStoredValue(TOKEN_KEY_ACCESS),
     getStoredValue(TOKEN_KEY_REFRESH),
     getStoredValue(TOKEN_KEY_EXPIRY),
+    getStoredValue(TOKEN_KEY_REFRESH_EXPIRY),
     getStoredValue(TOKEN_KEY_CLIENT_ID),
     getStoredValue(TOKEN_KEY_CLIENT_SECRET),
   ]);
@@ -156,41 +172,56 @@ export async function getValidAccessToken(): Promise<string> {
     throw new Error('not_connected');
   }
 
-  // If token still valid (with 60s buffer), return it
-  const expiry = expiryStr ? parseInt(expiryStr, 10) : 0;
-  if (access && expiry > Date.now() + 60_000) return access;
+  // If refresh token is expired, must re-auth — no point trying to refresh
+  const refreshExpiry = refreshExpiryStr ? parseInt(refreshExpiryStr, 10) : Date.now() + REFRESH_TOKEN_TTL_MS;
+  if (refreshExpiry < Date.now()) {
+    throw new Error('not_connected');
+  }
 
-  // Refresh
-  const tokens = await refreshAccessToken(clientId, clientSecret, refresh);
-  await storeTokens(tokens.access_token, tokens.refresh_token ?? refresh, tokens.expires_in ?? 3600);
-  return tokens.access_token;
+  // If access token still valid (with 60s buffer), return it
+  const expiry = expiryStr ? parseInt(expiryStr, 10) : 0;
+if (expiry > Date.now() + 60_000) return access;
+
+  // Access token expired — IndMoney refresh tokens don't reliably produce valid tokens,
+  // so treat expiry as not_connected and force re-auth via the OAuth flow.
+  throw new Error('not_connected');
 }
 
 // ─── MCP tool call ────────────────────────────────────────────────────────────
 
 let _rpcId = 1;
 
+async function mcpFetch(token: string, body: object, sessionId?: string): Promise<Response> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json, text/event-stream',
+    Authorization: `Bearer ${token}`,
+  };
+  if (sessionId) headers['Mcp-Session-Id'] = sessionId;
+
+  return fetch('https://mcp.indmoney.com/mcp', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(60_000),
+  });
+}
+
+
 export async function callMcpTool<T = unknown>(toolName: string, args: Record<string, unknown> = {}): Promise<T> {
   const token = await getValidAccessToken();
 
-  const res = await fetch('https://mcp.indmoney.com/mcp', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      // MCP Streamable HTTP spec requires both; omitting text/event-stream → 406
-      'Accept': 'application/json, text/event-stream',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: _rpcId++,
-      method: 'tools/call',
-      params: { name: toolName, arguments: args },
-    }),
-    signal: AbortSignal.timeout(30_000),
+  const res = await mcpFetch(token, {
+    jsonrpc: '2.0',
+    id: _rpcId++,
+    method: 'tools/call',
+    params: { name: toolName, arguments: args },
   });
 
-  if (!res.ok) throw new Error(`MCP HTTP error: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`MCP HTTP error: ${res.status}${body ? ` — ${body}` : ''}`);
+  }
 
   const contentType = res.headers.get('content-type') ?? '';
   let json: Record<string, unknown>;

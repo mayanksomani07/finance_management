@@ -925,13 +925,19 @@ export default function WealthPage() {
           <Divider label="Fixed Deposit [Nominee — Mom]" />
           <EditableField label="Invested"      fieldKey="fd_invested"   value={mv('fd_invested')}   note={mn('fd_invested')}   onSaved={loadManual} />
           <EditableField label="Current Value" fieldKey="fd_current"    value={mv('fd_current')}    note={mn('fd_current')}    onSaved={loadManual} />
-          <div className="flex justify-between mt-3 pt-2" style={{ borderTop: '1px solid var(--border2)' }}>
-            <span className="text-xs" style={{ color: 'var(--text2)' }}>Invested Total</span>
-            <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{fmt(debtInvested)}</span>
-          </div>
-          <div className="flex justify-between mt-1">
-            <span className="text-sm font-bold" style={{ color: 'var(--text)' }}>Final Total</span>
-            <span className="text-base font-bold" style={{ color: 'var(--text)' }}>{fmt(debtCurrent)}</span>
+          <div className="flex justify-between mt-2 pt-3" style={{ borderTop: '1px solid var(--border2)' }}>
+            <span className="text-sm font-bold" style={{ color: 'var(--text)' }}>Debt Total</span>
+            <div className="text-right">
+              <p className="text-base font-bold" style={{ color: 'var(--text)' }}>{debtCurrent > 0 ? fmt(debtCurrent) : '—'}</p>
+              {debtInvested > 0 && (
+                <p className="text-[10px]" style={{ color: 'var(--text3)' }}>invested {fmt(debtInvested)}</p>
+              )}
+              {debtInvested > 0 && debtCurrent > 0 && (
+                <p className="text-[10px] font-semibold mt-0.5" style={{ color: pnlColor(debtInvested, debtCurrent) }}>
+                  {pnlSign(debtInvested, debtCurrent)}
+                </p>
+              )}
+            </div>
           </div>
         </Section>
 

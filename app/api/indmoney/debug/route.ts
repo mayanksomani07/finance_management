@@ -2,13 +2,15 @@ import { NextResponse } from 'next/server';
 import { callMcpTool, isConnected } from '@/lib/indmoney';
 import { createServerClient } from '@/lib/supabase';
 
+const ENV = process.env.NEXT_PUBLIC_APP_ENV ?? (process.env.NODE_ENV === 'production' ? 'prod' : 'dev');
 const INDMONEY_KEYS = [
-  '_indmoney_access_token',
-  '_indmoney_refresh_token',
-  '_indmoney_token_expiry',
-  '_indmoney_client_id',
-  '_indmoney_client_secret',
-  '_indmoney_client_redirect',
+  `_indmoney_access_token_${ENV}`,
+  `_indmoney_refresh_token_${ENV}`,
+  `_indmoney_token_expiry_${ENV}`,
+  `_indmoney_refresh_token_expiry_${ENV}`,
+  `_indmoney_client_id_${ENV}`,
+  `_indmoney_client_secret_${ENV}`,
+  `_indmoney_client_redirect_${ENV}`,
 ];
 
 export async function GET() {

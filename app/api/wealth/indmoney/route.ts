@@ -18,7 +18,6 @@ export async function GET() {
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    // If token expired and refresh failed, report as not connected
     if (msg === 'not_connected') {
       return NextResponse.json({ success: false, error: 'not_connected' });
     }
