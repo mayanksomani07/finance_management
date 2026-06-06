@@ -21,9 +21,18 @@ function fmt(n: number, decimals = 0) {
 
 function fmtShort(n: number) {
   const abs = Math.abs(n);
-  if (abs >= 10000000) return `₹${(n / 10000000).toFixed(2)}Cr`;
-  if (abs >= 100000) return `₹${(n / 100000).toFixed(2)}L`;
-  if (abs >= 1000) return `₹${(n / 1000).toFixed(1)}K`;
+  if (abs >= 10000000) {
+    const v = n / 10000000;
+    return `₹${v % 1 === 0 ? v.toFixed(0) : v.toFixed(2)}Cr`;
+  }
+  if (abs >= 100000) {
+    const v = n / 100000;
+    return `₹${v % 1 === 0 ? v.toFixed(0) : (v * 10 % 1 === 0 ? v.toFixed(1) : v.toFixed(2))}L`;
+  }
+  if (abs >= 1000) {
+    const v = n / 1000;
+    return `₹${v % 1 === 0 ? v.toFixed(0) : v.toFixed(1)}K`;
+  }
   return `₹${n.toFixed(0)}`;
 }
 
@@ -236,17 +245,17 @@ function Section({
   const gain = hasPnl ? current! - invested! : 0;
   const gainPct = hasPnl && invested! > 0 ? (gain / invested!) * 100 : 0;
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderLeft: `3px solid ${accentColor}`, boxShadow: 'var(--shadow-card)' }}>
+    <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--card)', border: '1.5px solid var(--border)', borderLeft: `3px solid ${accentColor}`, boxShadow: 'var(--shadow-card)' }}>
       <div className="px-4 pt-4 pb-3">
         <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}18` }}>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}1a`, border: `1px solid ${accentColor}30` }}>
               <span style={{ color: accentColor }}>{icon}</span>
             </div>
             <div>
-              <span className="text-sm font-bold" style={{ color: 'var(--text)' }}>{title}</span>
+              <span className="text-[15px] font-extrabold tracking-tight" style={{ color: 'var(--text)', letterSpacing: '-0.01em' }}>{title}</span>
               {badge && (
-                <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: 'var(--bg2)', color: 'var(--text3)', border: '1px solid var(--border)' }}>
+                <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: 'var(--bg2)', color: 'var(--text3)', border: '1px solid var(--border)' }}>
                   {badge}
                 </span>
               )}
@@ -255,25 +264,25 @@ function Section({
           {loading && <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${accentColor}80`, borderTopColor: 'transparent' }} />}
         </div>
         {hasPnl && !loading && (
-          <div className="flex items-end justify-between mt-3 p-3 rounded-xl" style={{ backgroundColor: 'var(--bg2)', border: '1px solid var(--border)' }}>
+          <div className="flex items-end justify-between mt-3 p-3.5 rounded-xl" style={{ backgroundColor: 'var(--bg2)', border: '1.5px solid var(--border)' }}>
             <div>
-              <p className="uppercase tracking-widest mb-1 font-bold" style={{ fontSize: 9, color: 'var(--text3)', letterSpacing: '0.1em' }}>Current Value</p>
-              <p className="text-2xl font-extrabold" style={{ color: 'var(--text)' }}>{fmtShort(current!)}</p>
-              {invested! > 0 && <p className="mt-0.5 font-medium" style={{ fontSize: 10, color: 'var(--text3)' }}>of {fmtShort(invested!)} invested</p>}
+              <p className="uppercase tracking-widest mb-1.5 font-bold" style={{ fontSize: 9, color: 'var(--text3)', letterSpacing: '0.1em' }}>Current Value</p>
+              <p style={{ fontSize: 22, fontWeight: 900, color: 'var(--text)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{fmtShort(current!)}</p>
+              {invested! > 0 && <p className="mt-1 font-medium" style={{ fontSize: 11, color: 'var(--text3)' }}>of {fmtShort(invested!)} invested</p>}
             </div>
             <div className="text-right">
-              <p className="uppercase tracking-widest mb-1 font-bold" style={{ fontSize: 9, color: 'var(--text3)', letterSpacing: '0.1em' }}>P&amp;L</p>
-              <p className="text-base font-extrabold" style={{ color: pnlColor(invested!, current!) }}>
+              <p className="uppercase tracking-widest mb-1.5 font-bold" style={{ fontSize: 9, color: 'var(--text3)', letterSpacing: '0.1em' }}>P&amp;L</p>
+              <p style={{ fontSize: 16, fontWeight: 900, color: pnlColor(invested!, current!), fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em' }}>
                 {gain >= 0 ? '+' : ''}{fmtShort(gain)}
               </p>
-              <p className="text-xs font-bold mt-0.5" style={{ color: pnlColor(invested!, current!) }}>
+              <p style={{ fontSize: 12, fontWeight: 800, marginTop: 2, color: pnlColor(invested!, current!), fontVariantNumeric: 'tabular-nums' }}>
                 {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
               </p>
             </div>
           </div>
         )}
       </div>
-      <div className="px-4 py-3 space-y-0.5" style={{ borderTop: '1px solid var(--border)' }}>{children}</div>
+      <div className="px-4 py-3 space-y-1" style={{ borderTop: '1px solid var(--border)' }}>{children}</div>
     </div>
   );
 }
@@ -315,83 +324,156 @@ const ASSET_COLORS_DARK = ['#4338ca', '#0a7a58', '#92400e', '#c2410c', '#6d28d9'
 interface AssetSlice { name: string; value: number; color: string; darkColor: string; }
 
 const CHART_COLORS = {
-  dark:  { card: '#13132a', border: '#252548', text: '#b8b4e0', textSub: '#8a87c0', grid: '#1e1e40', axis: '#8a87c0' },
-  light: { card: '#f7f8fd', border: '#dde0f0', text: '#353570', textSub: '#5c5c90', grid: '#dde0f0', axis: '#5c5c90' },
+  dark:  { card: '#13132a', border: '#252548', text: '#c8c4f0', textSub: '#9a97d0', grid: '#1e1e40', axis: '#9a97d0', accent: '#7c6ef5', income: '#10d9a0', expense: '#f45b5b' },
+  light: { card: '#f7f8fd', border: '#dde0f0', text: '#2a2a5a', textSub: '#4a4a80', grid: '#e8eaf4', axis: '#4a4a80', accent: '#4f46e5', income: '#0d9268', expense: '#c0392b' },
 };
 
 function AllocationDonut({ slices, theme }: { slices: AssetSlice[]; theme: 'dark' | 'light' }) {
   const total = slices.reduce((s, x) => s + x.value, 0);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
   if (total === 0) return null;
 
-  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: AssetSlice }> }) => {
-    if (!active || !payload?.length) return null;
-    const d = payload[0].payload;
-    return (
-      <div style={{
-        background: 'var(--card)',
-        border: '1px solid var(--border)',
-        borderRadius: 14,
-        padding: '10px 14px',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
-          <div style={{ width: 9, height: 9, borderRadius: '50%', background: d.color, flexShrink: 0 }} />
-          <p style={{ color: 'var(--text)', fontWeight: 700, fontSize: 12 }}>{d.name}</p>
-        </div>
-        <p style={{ color: d.color, fontSize: 13, fontWeight: 700 }}>{fmtShort(d.value)}</p>
-        <p style={{ color: 'var(--text3)', fontSize: 10, marginTop: 1 }}>{((d.value / total) * 100).toFixed(1)}% of portfolio</p>
-      </div>
-    );
-  };
+  const activeSlice = activeIndex !== null ? slices[activeIndex] : null;
 
   return (
-    <div className="mx-4 mb-4 rounded-2xl overflow-hidden" style={{
+    <div className="mx-4 mb-5 rounded-2xl overflow-hidden" style={{
       backgroundColor: 'var(--card)',
-      border: '1px solid var(--border)',
+      border: '1.5px solid var(--border)',
       borderLeft: '3px solid var(--accent)',
       boxShadow: 'var(--shadow-card)',
     }}>
-      <div className="px-4 pt-4 pb-2">
-        <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text)', letterSpacing: '0.1em' }}>Asset Allocation</p>
-        <p className="text-[10px] mt-0.5" style={{ color: 'var(--text3)' }}>Tap a slice to see details</p>
-      </div>
-      <div className="flex flex-col sm:flex-row items-center gap-2 px-4 pb-4">
-        <div className="w-full sm:w-48 h-52">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={slices}
-                cx="50%"
-                cy="50%"
-                innerRadius="55%"
-                outerRadius="80%"
-                paddingAngle={3}
-                dataKey="value"
-                stroke="none"
-              >
-                {slices.map((s, i) => (
-                  <Cell key={i} fill={s.color} />
-                ))}
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
+      {/* Header */}
+      <div className="px-5 pt-5 pb-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[16px] font-extrabold tracking-tight" style={{ color: 'var(--text)', letterSpacing: '-0.02em' }}>Asset Allocation</p>
+            <p className="text-[11px] font-medium mt-0.5" style={{ color: 'var(--text3)' }}>
+              {activeSlice ? (
+                <span style={{ color: activeSlice.color }}>● {activeSlice.name}</span>
+              ) : 'Hover a slice or card to inspect'}
+            </p>
+          </div>
+          <div className="px-3 py-1.5 rounded-xl" style={{ background: 'var(--accent-bg)', border: '1.5px solid var(--accent-border)' }}>
+            <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{fmtShort(total)}</p>
+          </div>
         </div>
-        <div className="w-full grid grid-cols-2 gap-x-2.5 gap-y-2.5">
-          {slices.map((s, i) => {
-            const labelColor = theme === 'light' ? s.darkColor : s.color;
-            return (
-            <div key={i} className="flex items-center gap-2 min-w-0 rounded-xl p-2.5" style={{ background: 'var(--bg2)', border: '1px solid var(--border)' }}>
-              <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
-              <div className="min-w-0">
-                <p className="truncate font-semibold" style={{ color: 'var(--text2)', fontSize: 10 }}>{s.name}</p>
-                <p className="font-bold" style={{ color: 'var(--text)', fontSize: 12 }}>{fmtShort(s.value)}</p>
-                <p style={{ color: labelColor, fontSize: 10, fontWeight: 700 }}>{((s.value / total) * 100).toFixed(1)}%</p>
+      </div>
+
+      {/* Donut + center label */}
+      <div style={{ position: 'relative', height: 260, paddingLeft: 16, paddingRight: 16 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={slices}
+              cx="50%"
+              cy="50%"
+              innerRadius="50%"
+              outerRadius="74%"
+              paddingAngle={3}
+              dataKey="value"
+              stroke="none"
+              onMouseEnter={(_, index) => setActiveIndex(index)}
+              onMouseLeave={() => setActiveIndex(null)}
+            >
+              {slices.map((s, i) => (
+                <Cell
+                  key={i}
+                  fill={s.color}
+                  opacity={activeIndex === null || activeIndex === i ? 1 : 0.3}
+                  style={{
+                    cursor: 'pointer',
+                    filter: activeIndex === i ? `drop-shadow(0 0 8px ${s.color}bb)` : 'none',
+                    transition: 'opacity 0.15s, filter 0.15s',
+                  }}
+                />
+              ))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+
+        {/* Center label — no tooltip, everything lives here */}
+        <div style={{
+          position: 'absolute', top: '50%', left: '50%',
+          transform: 'translate(-50%, -50%)',
+          textAlign: 'center', pointerEvents: 'none',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+          width: 120,
+        }}>
+          {activeSlice ? (
+            <>
+              <div style={{
+                width: 32, height: 32, borderRadius: '50%',
+                background: activeSlice.color + '20',
+                border: `2.5px solid ${activeSlice.color}80`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <div style={{ width: 12, height: 12, borderRadius: '50%', background: activeSlice.color, boxShadow: `0 0 8px ${activeSlice.color}` }} />
+              </div>
+              <p style={{
+                fontSize: 10, fontWeight: 800, color: 'var(--text3)',
+                textTransform: 'uppercase', letterSpacing: '0.07em', lineHeight: 1,
+                maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>{activeSlice.name}</p>
+              <p style={{
+                fontSize: 20, fontWeight: 900, color: 'var(--text)',
+                letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1,
+                whiteSpace: 'nowrap',
+              }}>{fmtShort(activeSlice.value)}</p>
+              <div style={{
+                fontSize: 12, fontWeight: 800,
+                color: activeSlice.color,
+                background: activeSlice.color + '1a',
+                border: `1.5px solid ${activeSlice.color}50`,
+                padding: '2px 10px', borderRadius: 20, lineHeight: 1.5,
+              }}>{((activeSlice.value / total) * 100).toFixed(1)}%</div>
+            </>
+          ) : (
+            <>
+              <p style={{ fontSize: 9, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.12em', lineHeight: 1 }}>Portfolio</p>
+              <p style={{ fontSize: 21, fontWeight: 900, color: 'var(--text)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1, whiteSpace: 'nowrap' }}>{fmtShort(total)}</p>
+              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--text3)', lineHeight: 1 }}>{slices.length} assets</p>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Legend grid */}
+      <div className="px-4 pb-5 grid grid-cols-2 gap-2" style={{ borderTop: '1px solid var(--border)' }}>
+        <div className="col-span-2 pt-3 pb-1">
+          <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Breakdown</p>
+        </div>
+        {slices.map((s, i) => {
+          const labelColor = theme === 'light' ? s.darkColor : s.color;
+          const pct = ((s.value / total) * 100).toFixed(1);
+          const isActive = activeIndex === i;
+          return (
+            <div
+              key={i}
+              onMouseEnter={() => setActiveIndex(i)}
+              onMouseLeave={() => setActiveIndex(null)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10, minWidth: 0,
+                borderRadius: 14, padding: '11px 13px',
+                background: isActive ? s.color + '22' : s.color + '0d',
+                border: `1.5px solid ${isActive ? s.color + '80' : s.color + '28'}`,
+                cursor: 'pointer',
+                transition: 'background 0.15s, border-color 0.15s, box-shadow 0.15s',
+                boxShadow: isActive ? `0 4px 16px ${s.color}22` : 'none',
+              }}
+            >
+              <div style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, backgroundColor: s.color, boxShadow: `0 0 6px ${s.color}80` }} />
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <p style={{
+                  fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+                  color: 'var(--text3)', marginBottom: 2,
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                }}>{s.name}</p>
+                <p style={{ fontSize: 13, fontWeight: 900, color: 'var(--text)', letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums' }}>{fmtShort(s.value)}</p>
+                <p style={{ fontSize: 11, fontWeight: 800, color: labelColor, marginTop: 1 }}>{pct}%</p>
               </div>
             </div>
-            );
-          })}
-        </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -409,14 +491,21 @@ const BarTooltip = ({ active, payload, label }: { active?: boolean; payload?: Ar
       border: '1px solid var(--border)',
       borderRadius: 14,
       padding: '10px 14px',
-      boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
+      minWidth: 160,
     }}>
-      <p style={{ color: 'var(--text)', fontWeight: 700, fontSize: 12, marginBottom: 6 }}>{label}</p>
+      {label && (
+        <p style={{ color: 'var(--text3)', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+          {label}
+        </p>
+      )}
       {payload.map((p, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-          <div style={{ width: 8, height: 8, borderRadius: 2, background: p.fill || (p.name === 'Invested' ? '#5a5aff' : '#00d9a6'), flexShrink: 0 }} />
-          <span style={{ color: 'var(--text2)', fontSize: 11 }}>{p.name}:&nbsp;</span>
-          <span style={{ color: 'var(--text)', fontSize: 11, fontWeight: 600 }}>{fmtShort(p.value)}</span>
+        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <div style={{ width: 8, height: 8, borderRadius: 3, background: p.fill || (p.name === 'Invested' ? '#5a5aff' : '#00d9a6'), flexShrink: 0 }} />
+            <span style={{ color: 'var(--text3)', fontSize: 11, fontWeight: 600 }}>{p.name}</span>
+          </div>
+          <span style={{ color: 'var(--text)', fontSize: 12, fontWeight: 800 }}>{fmtShort(p.value)}</span>
         </div>
       ))}
     </div>
@@ -436,54 +525,76 @@ function PnlBarChart({ bars }: { bars: PnlBar[] }) {
     color: b.color,
   }));
 
+  const totalInvested = data.reduce((s, d) => s + d.Invested, 0);
+  const totalCurrent = data.reduce((s, d) => s + d.Current, 0);
+  const overallGain = totalCurrent - totalInvested;
+  const overallPct = totalInvested > 0 ? (overallGain / totalInvested) * 100 : 0;
+
   return (
-    <div className="mx-4 mb-4 rounded-2xl overflow-hidden" style={{
+    <div className="mx-4 mb-5 rounded-2xl overflow-hidden" style={{
       backgroundColor: 'var(--card)',
-      border: '1px solid var(--border)',
-      borderLeft: '3px solid var(--income)',
+      border: '1.5px solid var(--border)',
+      borderLeft: `3px solid ${overallGain >= 0 ? 'var(--income)' : 'var(--expense)'}`,
       boxShadow: 'var(--shadow-card)',
     }}>
-      <div className="px-4 pt-4 pb-3">
-        <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text)', letterSpacing: '0.1em' }}>Invested vs Current</p>
-        <p className="text-[10px] mt-0.5" style={{ color: 'var(--text3)' }}>Per category comparison</p>
+      <div className="px-5 pt-5 pb-4">
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <p className="text-[16px] font-extrabold tracking-tight" style={{ color: 'var(--text)', letterSpacing: '-0.02em' }}>Invested vs Current</p>
+            <p className="text-[12px] font-medium mt-0.5" style={{ color: 'var(--text3)' }}>Per category comparison</p>
+          </div>
+          {totalInvested > 0 && (
+            <div className="text-right">
+              <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Overall P&amp;L</p>
+              <p style={{ fontSize: 16, fontWeight: 900, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', color: overallGain >= 0 ? 'var(--income)' : 'var(--expense)' }}>
+                {overallGain >= 0 ? '+' : ''}{fmtShort(overallGain)}
+              </p>
+              <p style={{ fontSize: 11, fontWeight: 800, color: overallGain >= 0 ? 'var(--income)' : 'var(--expense)' }}>
+                {overallPct >= 0 ? '+' : ''}{overallPct.toFixed(1)}%
+              </p>
+            </div>
+          )}
+        </div>
         {/* Legend */}
-        <div className="flex items-center gap-4 mt-2.5">
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-sm" style={{ background: '#5a5aff' }} />
-            <span style={{ color: 'var(--text2)', fontSize: 11 }}>Invested</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-sm" style={{ background: '#00d9a6' }} />
-            <span style={{ color: 'var(--text2)', fontSize: 11 }}>Current (gain)</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-sm" style={{ background: '#ff6b6b' }} />
-            <span style={{ color: 'var(--text2)', fontSize: 11 }}>Current (loss)</span>
-          </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {[
+            { color: 'var(--accent)',  hex: '#6366f1', label: 'Invested' },
+            { color: 'var(--income)',  hex: '#10d9a0', label: 'Gain' },
+            { color: 'var(--expense)', hex: '#f45b5b', label: 'Loss' },
+          ].map(l => (
+            <div key={l.label} style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '4px 10px', borderRadius: 9,
+              background: l.hex + '18', border: `1.5px solid ${l.hex}40`,
+            }}>
+              <div style={{ width: 8, height: 8, borderRadius: 3, background: l.color, flexShrink: 0 }} />
+              <span style={{ fontSize: 10, fontWeight: 800, color: l.color, letterSpacing: '0.03em' }}>{l.label}</span>
+            </div>
+          ))}
         </div>
       </div>
-      <div className="pb-4 pr-3" style={{ height: 210 }}>
+      <div className="pb-5 pr-3" style={{ height: 230 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} barGap={3} barSize={13} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="4 4" stroke={cc.grid} vertical={false} />
+          <BarChart data={data} barGap={4} barSize={15} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 6" stroke={cc.grid} vertical={false} />
             <XAxis
               dataKey="name"
-              tick={{ fill: cc.text, fontSize: 10, fontWeight: 500 }}
-              axisLine={{ stroke: cc.border }}
+              tick={{ fill: cc.text, fontSize: 11, fontWeight: 800, fontFamily: 'inherit' }}
+              axisLine={false}
               tickLine={false}
             />
             <YAxis
-              tick={{ fill: cc.axis, fontSize: 9 }}
+              tick={{ fill: cc.axis, fontSize: 10, fontWeight: 700, fontFamily: 'inherit' }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v) => fmtShort(v)}
-              width={44}
+              width={56}
             />
-            <Tooltip content={<BarTooltip />} cursor={{ fill: 'rgba(108,99,255,0.08)', radius: 6 }} />
-            <Bar dataKey="Invested" fill="#5a5aff" radius={[4, 4, 0, 0]} opacity={0.85} />
-            <Bar dataKey="Current" radius={[4, 4, 0, 0]}>
+            <Tooltip content={<BarTooltip />} cursor={{ fill: 'rgba(108,99,255,0.07)', radius: 6 }} />
+            <Bar dataKey="Invested" fill={cc.accent} radius={[5, 5, 0, 0]} opacity={0.88} />
+            <Bar dataKey="Current" radius={[5, 5, 0, 0]}>
               {data.map((d, i) => (
-                <Cell key={i} fill={d.Current >= d.Invested ? '#00d9a6' : '#ff6b6b'} />
+                <Cell key={i} fill={d.Current >= d.Invested ? cc.income : cc.expense} />
               ))}
             </Bar>
           </BarChart>
@@ -675,51 +786,55 @@ export default function WealthPage() {
     <div className="max-w-lg mx-auto pb-28 min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
 
       {/* ── Header ── */}
-      <header className="px-4 pt-12 pb-5 flex items-start justify-between">
-        <div className="flex items-center gap-3 mb-1">
-          <div className="p-2 rounded-xl bg-[#6c63ff20]">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6c63ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <header className="px-5 pt-14 pb-6 flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(108,99,255,0.22), rgba(108,99,255,0.08))', border: '1.5px solid rgba(108,99,255,0.28)' }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
               <polyline points="16 7 22 7 22 13"/>
             </svg>
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: 'var(--text)' }}>Wealth</h1>
-            <p className="text-xs" style={{ color: 'var(--text3)' }}>Net worth snapshot · tap any value to edit</p>
+            <h1 className="text-[28px] font-black tracking-tight leading-none" style={{ color: 'var(--text)', letterSpacing: '-0.03em' }}>Wealth</h1>
+            <p className="text-[12px] mt-1.5 font-medium" style={{ color: 'var(--text3)', letterSpacing: '0.01em' }}>Net worth snapshot · tap to edit</p>
           </div>
         </div>
         <div className="mt-1"><ThemeToggle /></div>
       </header>
 
       {/* ── Net Worth Hero ── */}
-      <div className="mx-4 mb-5 rounded-2xl p-5 relative overflow-hidden" style={{
+      <div className="mx-4 mb-5 rounded-2xl relative overflow-hidden" style={{
         background: 'var(--hero-bg)',
-        border: '1px solid var(--hero-border)',
-        borderLeft: '4px solid var(--accent)',
+        border: '1.5px solid var(--hero-border)',
+        borderLeft: '3px solid var(--accent)',
         boxShadow: 'var(--hero-shadow)',
       }}>
-        {/* glow blob */}
-        <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full pointer-events-none" style={{
-          background: `radial-gradient(circle, var(--hero-glow) 0%, transparent 70%)`,
+        {/* glow blobs */}
+        <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full pointer-events-none" style={{
+          background: `radial-gradient(circle, var(--hero-glow) 0%, transparent 65%)`,
         }} />
-        <div className="relative">
-          <p style={{ fontSize: 10, letterSpacing: '0.18em', color: 'var(--hero-label)', marginBottom: 4, fontWeight: 600 }}>TOTAL NET WORTH</p>
-          <p className="font-black tracking-tight" style={{ fontSize: 'clamp(2rem,8vw,3rem)', lineHeight: 1.1, color: 'var(--hero-value)' }}>{fmtShort(netWorth)}</p>
-          <p style={{ fontSize: 13, color: 'var(--hero-sub)', marginTop: 3, marginBottom: 16, fontVariantNumeric: 'tabular-nums' }}>{fmt(netWorth)}</p>
+        <div className="absolute -bottom-10 -left-10 w-40 h-40 rounded-full pointer-events-none" style={{
+          background: `radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%)`,
+        }} />
 
-          <div className="grid grid-cols-3 gap-2 pt-3" style={{ borderTop: '1px solid var(--hero-divider)' }}>
-            <div className="rounded-xl p-2.5" style={{ background: 'var(--hero-stat-assets-bg)', border: '1px solid var(--hero-stat-assets-border)' }}>
-              <p style={{ fontSize: 9, color: 'var(--hero-stat-label)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 2 }}>Assets</p>
-              <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--hero-stat-assets-val)' }}>{fmtShort(totalAssets)}</p>
+        <div className="relative px-5 pt-6 pb-5">
+          <p style={{ fontSize: 11, letterSpacing: '0.18em', color: 'var(--hero-label)', marginBottom: 8, fontWeight: 700, textTransform: 'uppercase' }}>Total Net Worth</p>
+          <p className="font-black tracking-tight" style={{ fontSize: 'clamp(2.2rem,9vw,3.2rem)', lineHeight: 1.05, color: 'var(--hero-value)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.03em' }}>{fmtShort(netWorth)}</p>
+          <p style={{ fontSize: 13, color: 'var(--hero-sub)', marginTop: 6, marginBottom: 22, fontVariantNumeric: 'tabular-nums', fontWeight: 500, letterSpacing: '-0.01em' }}>{fmt(netWorth)}</p>
+
+          <div className="grid grid-cols-3 gap-2.5 pt-4" style={{ borderTop: '1px solid var(--hero-divider)' }}>
+            <div className="rounded-2xl p-3.5" style={{ background: 'var(--hero-stat-assets-bg)', border: '1.5px solid var(--hero-stat-assets-border)' }}>
+              <p style={{ fontSize: 9, color: 'var(--hero-stat-label)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 5, fontWeight: 700 }}>Assets</p>
+              <p style={{ fontSize: 14, fontWeight: 900, color: 'var(--hero-stat-assets-val)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{fmtShort(totalAssets)}</p>
             </div>
-            <div className="rounded-xl p-2.5" style={{ background: 'var(--hero-stat-liab-bg)', border: '1px solid var(--hero-stat-liab-border)' }}>
-              <p style={{ fontSize: 9, color: 'var(--hero-stat-label)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 2 }}>Liabilities</p>
-              <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--hero-stat-liab-val)' }}>{fmtShort(totalLiabilities)}</p>
+            <div className="rounded-2xl p-3.5" style={{ background: 'var(--hero-stat-liab-bg)', border: '1.5px solid var(--hero-stat-liab-border)' }}>
+              <p style={{ fontSize: 9, color: 'var(--hero-stat-label)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 5, fontWeight: 700 }}>Liabilities</p>
+              <p style={{ fontSize: 14, fontWeight: 900, color: 'var(--hero-stat-liab-val)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{fmtShort(totalLiabilities)}</p>
             </div>
             {totalAssets > 0 && (
-              <div className="rounded-xl p-2.5" style={{ background: 'var(--hero-stat-inv-bg)', border: '1px solid var(--hero-stat-inv-border)' }}>
-                <p style={{ fontSize: 9, color: 'var(--hero-stat-label)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 2 }}>Invested</p>
-                <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--hero-stat-inv-val)' }}>{fmtShort(eqTotalInvested + mfTotalInvested + indmoneyInvested + cryptoInvested + debtInvested + pfInvested)}</p>
+              <div className="rounded-2xl p-3.5" style={{ background: 'var(--hero-stat-inv-bg)', border: '1.5px solid var(--hero-stat-inv-border)' }}>
+                <p style={{ fontSize: 9, color: 'var(--hero-stat-label)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 5, fontWeight: 700 }}>Invested</p>
+                <p style={{ fontSize: 14, fontWeight: 900, color: 'var(--hero-stat-inv-val)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{fmtShort(eqTotalInvested + mfTotalInvested + indmoneyInvested + cryptoInvested + debtInvested + pfInvested)}</p>
               </div>
             )}
           </div>
@@ -950,10 +1065,10 @@ export default function WealthPage() {
         </Section>
 
         {/* ── API Status ── */}
-        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderLeft: '3px solid var(--accent)', boxShadow: 'var(--shadow-card)' }}>
+        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--card)', border: '1.5px solid var(--border)', borderLeft: '3px solid var(--accent)', boxShadow: 'var(--shadow-card)' }}>
           <div className="px-4 pt-4 pb-3" style={{ borderBottom: '1px solid var(--border)' }}>
-            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text)', letterSpacing: '0.1em' }}>Live API Status</p>
-            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text3)' }}>Connection status for all data sources</p>
+            <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Live API Status</p>
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--text3)' }}>Connection status for all data sources</p>
           </div>
           <div className="px-4 py-1">
             <ApiRow name="Zerodha Kite (equity)"     active={equityLive?.success}  loading={loadingEquity}
@@ -983,21 +1098,22 @@ function ApiRow({ name, active, loading, hint, unavailable }: {
   const dotColor = unavailable ? 'var(--muted)' : active ? 'var(--clr-live)' : 'var(--clr-indmoney)';
   const statusLabel = unavailable ? 'N/A' : active ? 'Live' : 'Offline';
   return (
-    <div className="flex items-center gap-3 py-2.5" style={{ borderBottom: '1px solid var(--border)' }}>
+    <div className="flex items-center gap-3 py-3" style={{ borderBottom: '1px solid var(--border2)' }}>
       <div className="flex-shrink-0">
         {loading
-          ? <div className="w-2 h-2 border border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
-          : <div className="w-2 h-2 rounded-full" style={{ background: dotColor, boxShadow: active ? `0 0 5px ${dotColor}` : 'none' }} />
+          ? <div className="w-2.5 h-2.5 border-[1.5px] border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
+          : <div className="w-2.5 h-2.5 rounded-full" style={{ background: dotColor, boxShadow: active ? `0 0 6px ${dotColor}` : 'none' }} />
         }
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold" style={{ color: 'var(--text)' }}>{name}</p>
-        {hint && <p className="text-[10px] mt-0.5 truncate" style={{ color: 'var(--text3)' }}>{hint}</p>}
+        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{name}</p>
+        {hint && <p className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--text3)' }}>{hint}</p>}
       </div>
-      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{
-        background: unavailable ? 'var(--bg2)' : active ? 'rgba(13,146,104,0.1)' : 'rgba(180,83,9,0.1)',
+      <span style={{
+        fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 10, flexShrink: 0,
+        background: unavailable ? 'var(--bg2)' : active ? 'rgba(13,146,104,0.12)' : 'rgba(180,83,9,0.1)',
         color: dotColor,
-        border: `1px solid ${unavailable ? 'var(--border)' : active ? 'rgba(13,146,104,0.2)' : 'rgba(180,83,9,0.2)'}`,
+        border: `1.5px solid ${unavailable ? 'var(--border)' : active ? 'rgba(13,146,104,0.25)' : 'rgba(180,83,9,0.22)'}`,
       }}>{statusLabel}</span>
     </div>
   );

@@ -30,8 +30,26 @@
   --hero-stat-label: rgba(255,255,255,0.5);
   --hero-glow:       rgba(120,100,255,0.28);
 
-  --shadow-card: 0 2px 12px rgba(0,0,0,0.3);
+  --shadow-card: 0 2px 16px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.03) inset;
   --shadow-hero: 0 8px 48px rgba(100,90,255,0.22);
+
+  /* Accent tints */
+  --accent-bg:     rgba(124,110,245,0.14);
+  --accent-border: rgba(124,110,245,0.35);
+
+  /* Category palette — dark */
+  --clr-need:              #f59e0b;
+  --clr-need-bg:           rgba(245,158,11,0.14);
+  --clr-need-border:       rgba(245,158,11,0.35);
+  --clr-want:              #f87171;
+  --clr-want-bg:           rgba(248,113,113,0.14);
+  --clr-want-border:       rgba(248,113,113,0.35);
+  --clr-invest:            #a78bfa;
+  --clr-invest-bg:         rgba(167,139,250,0.14);
+  --clr-invest-border:     rgba(167,139,250,0.35);
+  --clr-income-cat:        #34d399;
+  --clr-income-cat-bg:     rgba(52,211,153,0.14);
+  --clr-income-cat-border: rgba(52,211,153,0.35);
 
   /* Section accent colors — vibrant for dark theme */
   --clr-bank:    #3b82f6;
@@ -86,8 +104,26 @@
   --hero-stat-label: #6b6b9a;
   --hero-glow:       transparent;
 
-  --shadow-card: 0 2px 12px rgba(0,0,0,0.07);
+  --shadow-card: 0 2px 14px rgba(0,0,0,0.09), 0 1px 2px rgba(0,0,0,0.06);
   --shadow-hero: 0 4px 24px rgba(79,70,229,0.10);
+
+  /* Accent tints */
+  --accent-bg:     rgba(79,70,229,0.10);
+  --accent-border: rgba(79,70,229,0.28);
+
+  /* Category palette — light (richer, higher contrast on white) */
+  --clr-need:              #d97706;
+  --clr-need-bg:           rgba(217,119,6,0.10);
+  --clr-need-border:       rgba(217,119,6,0.30);
+  --clr-want:              #dc2626;
+  --clr-want-bg:           rgba(220,38,38,0.09);
+  --clr-want-border:       rgba(220,38,38,0.28);
+  --clr-invest:            #7c3aed;
+  --clr-invest-bg:         rgba(124,58,237,0.09);
+  --clr-invest-border:     rgba(124,58,237,0.28);
+  --clr-income-cat:        #059669;
+  --clr-income-cat-bg:     rgba(5,150,105,0.09);
+  --clr-income-cat-border: rgba(5,150,105,0.28);
 
   /* Section accent colors — darker for light theme readability */
   --clr-bank:    #1d4ed8;
@@ -118,8 +154,30 @@
 body {
   background-color: var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI', Inter, system-ui, Roboto, sans-serif;
   -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1, 'tnum' 1;
+  letter-spacing: -0.01em;
+}
+
+/* ─── Utility classes ────────────────────────────────────────────────────── */
+.card-base {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
+}
+
+.card-accent-top {
+  border-top: 3px solid var(--accent);
+}
+
+/* Numeric figures always use tabular numbers */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
 }
 
 ::-webkit-scrollbar { width: 4px; }
