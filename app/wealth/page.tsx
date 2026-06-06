@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useTheme } from '@/components/ThemeProvider';
+import ExportModal from '@/components/ExportModal';
+import type { WealthSnapshot } from '@/lib/exportExcel';
+import { loadExcelTransactions, loadManualTransactions } from '@/lib/localStore';
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -150,7 +153,7 @@ function EditableField({
   return (
     <div className="flex items-center justify-between mt-1 group">
       <div>
-        <span className="text-xs" style={{ color: 'var(--text2)' }}>{label}</span>
+        <span className="text-xs font-semibold" style={{ color: 'var(--text2)' }}>{label}</span>
         {note && <span className="text-[10px] ml-1" style={{ color: 'var(--text3)' }}>· {note}</span>}
       </div>
       <div className="flex items-center gap-2">
@@ -255,7 +258,7 @@ function Section({
             <div>
               <span className="text-[15px] font-extrabold tracking-tight" style={{ color: 'var(--text)', letterSpacing: '-0.01em' }}>{title}</span>
               {badge && (
-                <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: 'var(--bg2)', color: 'var(--text3)', border: '1px solid var(--border)' }}>
+                <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: 'var(--bg2)', color: 'var(--text2)', border: '1px solid var(--border)' }}>
                   {badge}
                 </span>
               )}
@@ -268,7 +271,7 @@ function Section({
             <div>
               <p className="uppercase tracking-widest mb-1.5 font-bold" style={{ fontSize: 9, color: 'var(--text3)', letterSpacing: '0.1em' }}>Current Value</p>
               <p style={{ fontSize: 22, fontWeight: 900, color: 'var(--text)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{fmtShort(current!)}</p>
-              {invested! > 0 && <p className="mt-1 font-medium" style={{ fontSize: 11, color: 'var(--text3)' }}>of {fmtShort(invested!)} invested</p>}
+              {invested! > 0 && <p className="mt-1 font-medium" style={{ fontSize: 11, color: 'var(--text2)' }}>of {fmtShort(invested!)} invested</p>}
             </div>
             <div className="text-right">
               <p className="uppercase tracking-widest mb-1.5 font-bold" style={{ fontSize: 9, color: 'var(--text3)', letterSpacing: '0.1em' }}>P&amp;L</p>
@@ -291,10 +294,10 @@ function LiveRow({ label, value, fetchedAt, onRefresh }: { label: string; value:
   return (
     <div className="flex items-center justify-between mt-1">
       <div>
-        <p className="text-xs" style={{ color: 'var(--text2)' }}>{label}</p>
+        <p className="text-xs font-semibold" style={{ color: 'var(--text2)' }}>{label}</p>
         {fetchedAt && (
-          <p className="text-[10px] text-[color:var(--clr-live)] flex items-center gap-1 mt-0.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--clr-live)] inline-block animate-pulse" />
+          <p className="text-[10px] font-semibold flex items-center gap-1 mt-0.5" style={{ color: 'var(--clr-live)' }}>
+            <span className="w-1.5 h-1.5 rounded-full inline-block animate-pulse" style={{ background: 'var(--clr-live)' }} />
             Live · {new Date(fetchedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
           </p>
         )}
@@ -310,7 +313,7 @@ function LiveRow({ label, value, fetchedAt, onRefresh }: { label: string; value:
 function Divider({ label }: { label: string }) {
   return (
     <div className="mt-3 pt-2.5" style={{ borderTop: '1px solid var(--border2)' }}>
-      <p className="text-[10px] mb-1 uppercase tracking-wider font-semibold" style={{ color: 'var(--text2)' }}>{label}</p>
+      <p className="text-[10px] mb-1 uppercase tracking-wider font-extrabold" style={{ color: 'var(--text2)', letterSpacing: '0.12em' }}>{label}</p>
     </div>
   );
 }
@@ -347,7 +350,7 @@ function AllocationDonut({ slices, theme }: { slices: AssetSlice[]; theme: 'dark
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[16px] font-extrabold tracking-tight" style={{ color: 'var(--text)', letterSpacing: '-0.02em' }}>Asset Allocation</p>
-            <p className="text-[11px] font-medium mt-0.5" style={{ color: 'var(--text3)' }}>
+            <p className="text-[11px] font-medium mt-0.5" style={{ color: 'var(--text2)' }}>
               {activeSlice ? (
                 <span style={{ color: activeSlice.color }}>● {activeSlice.name}</span>
               ) : 'Hover a slice or card to inspect'}
@@ -503,7 +506,7 @@ const BarTooltip = ({ active, payload, label }: { active?: boolean; payload?: Ar
         <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, marginBottom: 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
             <div style={{ width: 8, height: 8, borderRadius: 3, background: p.fill || (p.name === 'Invested' ? '#5a5aff' : '#00d9a6'), flexShrink: 0 }} />
-            <span style={{ color: 'var(--text3)', fontSize: 11, fontWeight: 600 }}>{p.name}</span>
+            <span style={{ color: 'var(--text2)', fontSize: 11, fontWeight: 600 }}>{p.name}</span>
           </div>
           <span style={{ color: 'var(--text)', fontSize: 12, fontWeight: 800 }}>{fmtShort(p.value)}</span>
         </div>
@@ -541,7 +544,7 @@ function PnlBarChart({ bars }: { bars: PnlBar[] }) {
         <div className="flex items-start justify-between mb-3">
           <div>
             <p className="text-[16px] font-extrabold tracking-tight" style={{ color: 'var(--text)', letterSpacing: '-0.02em' }}>Invested vs Current</p>
-            <p className="text-[12px] font-medium mt-0.5" style={{ color: 'var(--text3)' }}>Per category comparison</p>
+            <p className="text-[12px] font-medium mt-0.5" style={{ color: 'var(--text2)' }}>Per category comparison</p>
           </div>
           {totalInvested > 0 && (
             <div className="text-right">
@@ -613,6 +616,7 @@ export default function WealthPage() {
   const [mfLive, setMfLive] = useState<ZerodhaLiveData | null>(null);
   const [cryptoLive, setCryptoLive] = useState<CoinLiveData | null>(null);
   const [indmoneyLive, setIndmoneyLive] = useState<IndMoneyLiveData | null>(null);
+  const [showExport, setShowExport] = useState(false);
   const [loadingManual, setLoadingManual] = useState(true);
   const [loadingEquity, setLoadingEquity] = useState(false);
   const [loadingMf, setLoadingMf] = useState(false);
@@ -796,10 +800,19 @@ export default function WealthPage() {
           </div>
           <div>
             <h1 className="text-[28px] font-black tracking-tight leading-none" style={{ color: 'var(--text)', letterSpacing: '-0.03em' }}>Wealth</h1>
-            <p className="text-[12px] mt-1.5 font-medium" style={{ color: 'var(--text3)', letterSpacing: '0.01em' }}>Net worth snapshot · tap to edit</p>
+            <p className="text-[12px] mt-1.5 font-medium" style={{ color: 'var(--text2)', letterSpacing: '0.01em' }}>Net worth snapshot · tap to edit</p>
           </div>
         </div>
-        <div className="mt-1"><ThemeToggle /></div>
+        <div className="mt-1 flex items-center gap-2">
+          <button
+            onClick={() => setShowExport(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold active:scale-95 transition-transform"
+            style={{ background: 'var(--accent-bg)', color: 'var(--accent)', border: '1.5px solid var(--accent-border)' }}
+          >
+            <span>📤</span><span>Export</span>
+          </button>
+          <ThemeToggle />
+        </div>
       </header>
 
       {/* ── Net Worth Hero ── */}
@@ -874,25 +887,36 @@ export default function WealthPage() {
           loading={loadingEquity || loadingMf}>
 
           {(equityLive?.success || mfLive?.success) ? (
-            <div className="flex items-center justify-between mb-2 px-3 py-2 rounded-xl" style={{ background: 'rgba(0,0,0,0.03)', border: '1px solid var(--border)' }}>
-              <span className="text-[10px] flex items-center gap-1.5" style={{ color: 'var(--clr-live)' }}>
-                <span className="w-2 h-2 rounded-full inline-block animate-pulse" style={{ background: 'var(--clr-live)' }} />
+            <div className="flex items-center justify-between mb-2 px-3 py-2.5 rounded-xl" style={{ background: 'color-mix(in srgb, var(--clr-zerodha) 10%, var(--bg2))', border: '1.5px solid color-mix(in srgb, var(--clr-zerodha) 40%, var(--border))' }}>
+              <span className="text-[11px] font-semibold flex items-center gap-1.5" style={{ color: 'var(--clr-zerodha)' }}>
+                <span className="w-2 h-2 rounded-full inline-block animate-pulse" style={{ background: 'var(--clr-zerodha)' }} />
                 Connected via Kite Connect
               </span>
-              <a href="/api/kite/disconnect" className="text-[10px] transition-colors" style={{ color: 'var(--text3)' }}>Disconnect</a>
+              <a href="/api/kite/disconnect" className="text-[10px] font-semibold px-2 py-1 rounded-lg transition-all hover:opacity-80 active:scale-95" style={{ color: 'var(--text2)', background: 'var(--bg2)', border: '1px solid var(--border)' }}>Disconnect</a>
             </div>
           ) : (
-            <div className="mb-3 p-3 rounded-xl" style={{ background: 'var(--bg2)', border: '1px solid var(--border)' }}>
+            <div className="mb-3 p-4 rounded-2xl flex flex-col gap-3" style={{ background: 'color-mix(in srgb, var(--clr-zerodha) 6%, var(--card))', border: '1.5px solid color-mix(in srgb, var(--clr-zerodha) 40%, var(--border))' }}>
               {(equityLive?.error === 'not_connected' || equityLive?.error === 'token_expired' || !equityLive) && (
-                <p className="text-[10px] mb-2" style={{ color: 'var(--text2)' }}>
-                  {equityLive?.error === 'token_expired'
-                    ? 'Session expired (Kite tokens reset daily) — reconnect to refresh.'
-                    : 'Connect Zerodha to fetch live holdings automatically.'}
-                </p>
+                <div>
+                  <p className="text-xs font-extrabold mb-1" style={{ color: 'var(--text)', letterSpacing: '0.01em' }}>
+                    {equityLive?.error === 'token_expired' ? '⚠ Session expired' : '🔗 Not connected'}
+                  </p>
+                  <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text2)' }}>
+                    {equityLive?.error === 'token_expired'
+                      ? 'Kite tokens reset daily — reconnect to refresh your holdings.'
+                      : 'Link your Zerodha account to pull live equity & MF data automatically.'}
+                  </p>
+                </div>
               )}
               <a href="/api/kite/connect"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-black text-xs font-bold mb-2 active:scale-95 transition-transform"
-                style={{ background: 'var(--clr-zerodha)', color: '#fff' }}>
+                className="self-start inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold tracking-wide active:scale-95 transition-all hover:opacity-90"
+                style={{
+                  background: 'linear-gradient(135deg, var(--clr-zerodha), color-mix(in srgb, var(--clr-zerodha) 70%, #fff))',
+                  color: 'var(--btn-zerodha-text)',
+                  border: '1.5px solid color-mix(in srgb, var(--clr-zerodha) 55%, #fff 45%)',
+                  boxShadow: '0 3px 14px color-mix(in srgb, var(--clr-zerodha) 45%, transparent)',
+                  letterSpacing: '0.02em',
+                }}>
                 <ChartIcon /> Connect Zerodha
               </a>
             </div>
@@ -973,29 +997,42 @@ export default function WealthPage() {
             <>
               <LiveRow label="Invested (live)"      value={indmoneyLive.invested ?? 0} fetchedAt={indmoneyLive.fetched_at} onRefresh={loadIndmoney} />
               <LiveRow label="Current Value (live)" value={indmoneyLive.current  ?? 0} fetchedAt={indmoneyLive.fetched_at} onRefresh={loadIndmoney} />
-              <div className="mt-2 pt-2 flex items-center justify-between" style={{ borderTop: '1px solid var(--border2)' }}>
-                <span className="text-[10px] flex items-center gap-1.5" style={{ color: 'var(--clr-live)' }}>
-                  <span className="w-2 h-2 rounded-full inline-block animate-pulse" style={{ background: 'var(--clr-live)' }} />
+              <div className="mt-2 pt-2.5 flex items-center justify-between" style={{ borderTop: '1px solid var(--border2)' }}>
+                <span className="text-[11px] font-semibold flex items-center gap-1.5" style={{ color: 'var(--clr-indmoney)' }}>
+                  <span className="w-2 h-2 rounded-full inline-block animate-pulse" style={{ background: 'var(--clr-indmoney)' }} />
                   Connected via IND Money MCP
                 </span>
-                <button onClick={loadIndmoney} className="text-[10px] w-6 h-6 rounded-full flex items-center justify-center" style={{ color: 'var(--accent)', background: 'rgba(108,99,255,0.12)' }}>↻</button>
+                <button onClick={loadIndmoney} className="text-[10px] font-semibold w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:opacity-80 active:scale-95" style={{ color: 'var(--clr-indmoney)', background: 'color-mix(in srgb, var(--clr-indmoney) 14%, var(--bg2))', border: '1px solid color-mix(in srgb, var(--clr-indmoney) 30%, var(--border))' }}>↻</button>
               </div>
             </>
           ) : (
             <>
               {indmoneyLive?.error && indmoneyLive.error !== 'not_connected' && (
-                <p className="text-[10px] text-[color:var(--expense)] mb-1">Error: {indmoneyLive.error}</p>
+                <p className="text-[10px] mb-1" style={{ color: 'var(--expense)' }}>Error: {indmoneyLive.error}</p>
               )}
-              <p className="text-[10px] mb-3" style={{ color: 'var(--text2)' }}>
-                {indmoneyLive?.error === 'not_connected' || !indmoneyLive
-                  ? 'Connect your IND Money account to fetch US stock values automatically.'
-                  : 'Could not fetch live data — manual values shown below.'}
-              </p>
-              <a href="/api/indmoney/connect"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-black text-xs font-bold mb-3 active:scale-95 transition-transform"
-                style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
-                <GlobeIcon /> Connect IND Money
-              </a>
+              <div className="mb-3 p-4 rounded-2xl flex flex-col gap-3" style={{ background: 'color-mix(in srgb, var(--clr-indmoney) 6%, var(--card))', border: '1.5px solid color-mix(in srgb, var(--clr-indmoney) 40%, var(--border))' }}>
+                <div>
+                  <p className="text-xs font-extrabold mb-1" style={{ color: 'var(--text)', letterSpacing: '0.01em' }}>
+                    {indmoneyLive?.error === 'not_connected' || !indmoneyLive ? '🔗 Not connected' : '⚠ Live data unavailable'}
+                  </p>
+                  <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text2)' }}>
+                    {indmoneyLive?.error === 'not_connected' || !indmoneyLive
+                      ? 'Link your IND Money account to pull US stock values automatically.'
+                      : 'Could not fetch live data — manual values shown below.'}
+                  </p>
+                </div>
+                <a href="/api/indmoney/connect"
+                  className="self-start inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold tracking-wide active:scale-95 transition-all hover:opacity-90"
+                  style={{
+                    background: 'linear-gradient(135deg, var(--clr-indmoney), color-mix(in srgb, var(--clr-indmoney) 70%, #fff))',
+                    color: 'var(--btn-indmoney-text)',
+                    border: '1.5px solid color-mix(in srgb, var(--clr-indmoney) 55%, #fff 45%)',
+                    boxShadow: '0 3px 14px color-mix(in srgb, var(--clr-indmoney) 45%, transparent)',
+                    letterSpacing: '0.02em',
+                  }}>
+                  <GlobeIcon /> Connect IND Money
+                </a>
+              </div>
               <EditableField label="Invested (manual)" fieldKey="indmoney_foreign_invested" value={mv('indmoney_foreign_invested')} note={mn('indmoney_foreign_invested')} onSaved={loadManual} />
               <EditableField label="Current Value (manual)" fieldKey="indmoney_foreign_current" value={mv('indmoney_foreign_current')} note={mn('indmoney_foreign_current')} onSaved={loadManual} />
             </>
@@ -1086,6 +1123,26 @@ export default function WealthPage() {
         </div>
 
       </div>
+
+      {showExport && (() => {
+        const wealthSnapshot: WealthSnapshot = {
+          netWorth, totalAssets, totalLiabilities,
+          eqTotalInvested, mfTotalInvested, indmoneyInvested,
+          cryptoInvested, debtInvested, pfInvested,
+          eqTotalCurrent, mfTotalCurrent, indmoneyCurrent,
+          cryptoCurrent, debtCurrent, pfCurrent,
+          bankBalance, cashInHand, mobikwik, bankTotal,
+          creditCardDue, payToSomeone,
+        };
+        const allTxs = [...loadManualTransactions(), ...loadExcelTransactions()];
+        return (
+          <ExportModal
+            onClose={() => setShowExport(false)}
+            transactions={allTxs}
+            wealth={wealthSnapshot}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -1106,8 +1163,8 @@ function ApiRow({ name, active, loading, hint, unavailable }: {
         }
       </div>
       <div className="flex-1 min-w-0">
-        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{name}</p>
-        {hint && <p className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--text3)' }}>{hint}</p>}
+        <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{name}</p>
+        {hint && <p className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--text2)' }}>{hint}</p>}
       </div>
       <span style={{
         fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 10, flexShrink: 0,

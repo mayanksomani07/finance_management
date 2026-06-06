@@ -14,20 +14,20 @@
   --border:  #252548;
   --border2: #1f1f40;
   --muted:   #6a6a90;
-  --text:    #f0eeff;
-  --text2:   #b8b4e0;
-  --text3:   #8a87c0;
-  --text4:   #6a6a90;
+  --text:    #f5f3ff;
+  --text2:   #ccc8f0;
+  --text3:   #a09cc8;
+  --text4:   #7070a0;
   --nav-bg:  #13132a;
 
   --hero-bg:         linear-gradient(145deg, #1e1a4a 0%, #0f0d2e 55%, #1a1640 100%);
   --hero-border:     rgba(124,110,245,0.45);
   --hero-shadow:     0 8px 48px rgba(100,90,255,0.22), 0 1px 0 rgba(255,255,255,0.04) inset;
-  --hero-label:      rgba(200,195,255,0.75);
+  --hero-label:      rgba(210,205,255,0.90);
   --hero-value:      #ffffff;
-  --hero-sub:        rgba(255,255,255,0.45);
-  --hero-divider:    rgba(255,255,255,0.08);
-  --hero-stat-label: rgba(255,255,255,0.5);
+  --hero-sub:        rgba(255,255,255,0.65);
+  --hero-divider:    rgba(255,255,255,0.10);
+  --hero-stat-label: rgba(255,255,255,0.65);
   --hero-glow:       rgba(120,100,255,0.28);
 
   --shadow-card: 0 2px 16px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.03) inset;
@@ -50,6 +50,10 @@
   --clr-income-cat:        #34d399;
   --clr-income-cat-bg:     rgba(52,211,153,0.14);
   --clr-income-cat-border: rgba(52,211,153,0.35);
+
+  /* Connect button text colors — dark text on vibrant button backgrounds */
+  --btn-zerodha-text: #0a1f16;
+  --btn-indmoney-text: #1a0f00;
 
   /* Section accent colors — vibrant for dark theme */
   --clr-bank:    #3b82f6;
@@ -124,6 +128,10 @@
   --clr-income-cat:        #059669;
   --clr-income-cat-bg:     rgba(5,150,105,0.09);
   --clr-income-cat-border: rgba(5,150,105,0.28);
+
+  /* Connect button text colors — white on dark button backgrounds in light theme */
+  --btn-zerodha-text: #ffffff;
+  --btn-indmoney-text: #ffffff;
 
   /* Section accent colors — darker for light theme readability */
   --clr-bank:    #1d4ed8;

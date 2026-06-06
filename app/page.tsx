@@ -8,6 +8,8 @@ import {
 } from 'recharts';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useTheme } from '@/components/ThemeProvider';
+import ExportModal from '@/components/ExportModal';
+import type { WealthSnapshot } from '@/lib/exportExcel';
 import { categorizeExpense, normaliseIncomeCategory } from '@/lib/categorize';
 import {
   loadExcelTransactions, saveExcelTransactions,
@@ -396,6 +398,16 @@ const SUB_PALETTES = {
 };
 
 type ChartTab = 'cat-pie' | 'sub-pie' | 'top-bar' | 'income' | 'daily' | 'monthly';
+
+const EMPTY_WEALTH: WealthSnapshot = {
+  netWorth: 0, totalAssets: 0, totalLiabilities: 0,
+  eqTotalInvested: 0, mfTotalInvested: 0, indmoneyInvested: 0,
+  cryptoInvested: 0, debtInvested: 0, pfInvested: 0,
+  eqTotalCurrent: 0, mfTotalCurrent: 0, indmoneyCurrent: 0,
+  cryptoCurrent: 0, debtCurrent: 0, pfCurrent: 0,
+  bankBalance: 0, cashInHand: 0, mobikwik: 0, bankTotal: 0,
+  creditCardDue: 0, payToSomeone: 0,
+};
 
 const INR_SHORT = (v: number) => {
   const abs = Math.abs(v);
@@ -1332,6 +1344,7 @@ export default function TransactionsPage() {
 
   const [showAdd, setShowAdd]         = useState(false);
   const [showFilter, setShowFilter]   = useState(false);
+  const [showExport, setShowExport]   = useState(false);
   const [search, setSearch]           = useState('');
 
   const [filterType, setFilterType]   = useState<FilterType>('all');
@@ -1430,9 +1443,18 @@ export default function TransactionsPage() {
         <div className="flex items-start justify-between mb-5">
           <div>
             <h1 className="text-[28px] font-black tracking-tight leading-none" style={{ color: 'var(--text)', letterSpacing: '-0.03em' }}>Transactions</h1>
-            <p className="text-[12px] mt-1.5 font-medium" style={{ color: 'var(--text3)', letterSpacing: '0.01em' }}>{periodLabel} · {filtered.length} entries</p>
+            <p className="text-[12px] mt-1.5 font-medium" style={{ color: 'var(--text2)', letterSpacing: '0.01em' }}>{periodLabel} · {filtered.length} entries</p>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowExport(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold active:scale-95 transition-transform"
+              style={{ background: 'var(--accent-bg)', color: 'var(--accent)', border: '1.5px solid var(--accent-border)' }}
+            >
+              <span>📤</span><span>Export</span>
+            </button>
+            <ThemeToggle />
+          </div>
         </div>
 
         {/* Summary strip */}
@@ -1556,6 +1578,13 @@ export default function TransactionsPage() {
       </button>
 
       {showAdd    && <AddModal onClose={() => setShowAdd(false)} onAdded={handleAdded} />}
+      {showExport && (
+        <ExportModal
+          onClose={() => setShowExport(false)}
+          transactions={allRaw}
+          wealth={EMPTY_WEALTH}
+        />
+      )}
       {showFilter && (
         <FilterSheet
           filterType={filterType} setFilterType={setFilterType}
