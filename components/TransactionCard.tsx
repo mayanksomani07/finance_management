@@ -9,13 +9,17 @@ interface Props {
   deleting: boolean;
 }
 
-const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
-  'Need':                    { bg: 'rgba(255,165,0,0.15)',   text: '#ffa500' },
-  'Want':                    { bg: 'rgba(255,107,107,0.15)', text: '#ff6b6b' },
-  'Investment':              { bg: 'rgba(108,99,255,0.15)',  text: '#6c63ff' },
-  'Monthly Payslip':         { bg: 'rgba(0,217,166,0.15)',   text: '#00d9a6' },
-  'Interest':                { bg: 'rgba(0,191,255,0.15)',   text: '#00bfff' },
-  'Money Back from Others':  { bg: 'rgba(180,180,255,0.15)', text: '#b4b4ff' },
+const CATEGORY_META: Record<string, { bg: string; text: string; dot: string }> = {
+  'Need':                   { bg: 'rgba(245,158,11,0.1)',   text: '#d97706',  dot: '#f59e0b' },
+  'Want':                   { bg: 'rgba(239,68,68,0.1)',    text: '#dc2626',  dot: '#ef4444' },
+  'Investment':             { bg: 'rgba(79,70,229,0.1)',    text: '#4f46e5',  dot: '#6366f1' },
+  'Monthly Payslip':        { bg: 'rgba(13,146,104,0.1)',   text: '#0d9268',  dot: '#10d9a0' },
+  'Interest':               { bg: 'rgba(14,165,233,0.1)',   text: '#0284c7',  dot: '#0ea5e9' },
+  'Money Back from Others': { bg: 'rgba(139,92,246,0.1)',   text: '#7c3aed',  dot: '#a78bfa' },
+};
+
+const SOURCE_LABEL: Record<string, string> = {
+  sbi: 'SBI', gpay: 'GPay', mobikwik: 'MobiKwik', neft: 'NEFT', manual: 'Manual', email: 'Email',
 };
 
 function sourceIcon(source: string | null): string {
@@ -32,67 +36,68 @@ function sourceIcon(source: string | null): string {
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 function formatAmount(n: number): string {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 2,
-  }).format(n);
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
 }
 
 export default function TransactionCard({ transaction: tx, onDelete, deleting }: Props) {
   const [showConfirm, setShowConfirm] = useState(false);
+  const isIncome = tx.type === 'income';
+  const amtColor = isIncome ? 'var(--income)' : 'var(--expense)';
+  const cat = tx.category ? (CATEGORY_META[tx.category] ?? { bg: 'rgba(136,136,170,0.1)', text: 'var(--text3)', dot: 'var(--muted)' }) : null;
 
   return (
-    <div className="bg-[#1a1a2e] rounded-2xl p-4 border border-[#2a2a4a] flex items-center gap-3">
-      {/* Source icon */}
-      <div className="w-10 h-10 rounded-full bg-[#0f0f23] flex items-center justify-center text-xl flex-shrink-0">
+    <div
+      className="rounded-2xl p-4 flex items-center gap-3"
+      style={{
+        backgroundColor: 'var(--card)',
+        border: '1px solid var(--border)',
+        boxShadow: 'var(--shadow-card)',
+      }}
+    >
+      {/* Avatar */}
+      <div
+        className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
+        style={{ backgroundColor: isIncome ? 'rgba(13,146,104,0.1)' : 'rgba(192,57,43,0.1)' }}
+      >
         {sourceIcon(tx.source)}
       </div>
 
       {/* Details */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-white truncate">
+        <p className="text-sm font-semibold truncate" style={{ color: 'var(--text)' }}>
           {tx.description || 'Transaction'}
         </p>
-        <div className="flex items-center gap-2 mt-0.5">
-          {tx.category && (() => {
-            const c = CATEGORY_COLORS[tx.category] ?? { bg: 'rgba(136,136,170,0.15)', text: '#8888aa' };
-            return (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: c.bg, color: c.text }}>
-                {tx.category}
-              </span>
-            );
-          })()}
-          <span className="text-[10px] text-[#8888aa]">{formatDate(tx.transaction_at)}</span>
+        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+          {cat && (
+            <span
+              className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"
+              style={{ background: cat.bg, color: cat.text }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: cat.dot }} />
+              {tx.category}
+            </span>
+          )}
+          <span className="text-[10px]" style={{ color: 'var(--text4)' }}>{formatDate(tx.transaction_at)}</span>
+          {tx.account_last4 && (
+            <span className="text-[10px]" style={{ color: 'var(--text4)' }}>••{tx.account_last4}</span>
+          )}
         </div>
-        {tx.account_last4 && (
-          <span className="text-[10px] text-[#8888aa]">••••{tx.account_last4}</span>
-        )}
       </div>
 
-      {/* Amount & delete */}
-      <div className="flex flex-col items-end gap-1">
-        <span
-          className="text-base font-bold"
-          style={{ color: tx.type === 'income' ? '#00d9a6' : '#ff6b6b' }}
-        >
-          {tx.type === 'income' ? '+' : '-'}
-          {formatAmount(Number(tx.amount))}
+      {/* Amount & actions */}
+      <div className="flex flex-col items-end gap-1 flex-shrink-0">
+        <span className="text-[15px] font-extrabold" style={{ color: amtColor }}>
+          {isIncome ? '+' : '-'}{formatAmount(Number(tx.amount))}
         </span>
         <span
-          className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+          className="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide"
           style={{
-            background: tx.type === 'income' ? 'rgba(0,217,166,0.15)' : 'rgba(255,107,107,0.15)',
-            color: tx.type === 'income' ? '#00d9a6' : '#ff6b6b',
+            background: isIncome ? 'rgba(13,146,104,0.1)' : 'rgba(192,57,43,0.1)',
+            color: amtColor,
           }}
         >
           {tx.type}
@@ -100,23 +105,26 @@ export default function TransactionCard({ transaction: tx, onDelete, deleting }:
         {!showConfirm ? (
           <button
             onClick={() => setShowConfirm(true)}
-            className="text-[10px] text-[#8888aa] hover:text-[#ff6b6b] transition-colors mt-1"
+            className="text-[11px] mt-0.5 w-5 h-5 rounded-full flex items-center justify-center transition-colors"
+            style={{ color: 'var(--text4)', background: 'var(--bg2)' }}
             aria-label="Delete"
           >
             ✕
           </button>
         ) : (
-          <div className="flex gap-2 mt-1">
+          <div className="flex gap-1.5 mt-0.5">
             <button
               onClick={() => onDelete(tx.id)}
               disabled={deleting}
-              className="text-[10px] text-[#ff6b6b] font-medium"
+              className="text-[10px] px-2 py-0.5 rounded-lg font-semibold"
+              style={{ color: '#fff', background: 'var(--expense)' }}
             >
-              {deleting ? '...' : 'Del'}
+              {deleting ? '…' : 'Del'}
             </button>
             <button
               onClick={() => setShowConfirm(false)}
-              className="text-[10px] text-[#8888aa]"
+              className="text-[10px] px-2 py-0.5 rounded-lg font-semibold"
+              style={{ color: 'var(--text3)', background: 'var(--bg2)' }}
             >
               No
             </button>

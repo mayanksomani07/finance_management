@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import BottomNav from '@/components/BottomNav';
+import { ThemeProvider } from '@/components/ThemeProvider';
 
 export const metadata: Metadata = {
   title: 'FinTrack',
@@ -30,9 +31,11 @@ export default function RootLayout({
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
-      <body className="bg-[#0f0f23] text-white min-h-screen antialiased">
-        {children}
-        <BottomNav />
+      <body className="min-h-screen antialiased" style={{ backgroundColor: 'var(--bg)', color: 'var(--text)' }}>
+        <ThemeProvider>
+          {children}
+          <BottomNav />
+        </ThemeProvider>
       </body>
     </html>
   );

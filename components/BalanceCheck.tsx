@@ -14,7 +14,7 @@ function fmt(n: number) {
 }
 
 interface BalanceCheckProps {
-  lastUpdated?: number; // pass Date.now() whenever transactions change
+  lastUpdated?: number;
 }
 
 export default function BalanceCheck({ lastUpdated }: BalanceCheckProps) {
@@ -50,12 +50,14 @@ export default function BalanceCheck({ lastUpdated }: BalanceCheckProps) {
   const hasDrift = data?.computed != null && data?.snapshot != null;
 
   return (
-    <div className="mx-4 mb-6 rounded-2xl bg-[#1a1a2e] border border-[#2a2a4a] p-4">
+    <div className="mx-4 mb-5 rounded-2xl p-4"
+      style={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderLeft: '3px solid var(--accent)', boxShadow: 'var(--shadow-card)' }}>
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-white">Balance Reconciliation</h2>
+        <h2 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Balance Reconciliation</h2>
         <button
           onClick={() => setShowInput((v) => !v)}
-          className="text-xs text-[#6c63ff] font-medium"
+          className="text-xs font-medium"
+          style={{ color: 'var(--accent)' }}
         >
           {data?.snapshot ? 'Update snapshot' : 'Set balance'}
         </button>
@@ -63,14 +65,16 @@ export default function BalanceCheck({ lastUpdated }: BalanceCheckProps) {
 
       {showInput && (
         <div className="mb-4 space-y-2">
-          <div className="flex items-center gap-2 bg-[#0f0f23] rounded-xl px-3 py-2">
-            <span className="text-[#8888aa] text-sm">₹</span>
+          <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
+            style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)' }}>
+            <span className="text-sm font-medium" style={{ color: 'var(--accent)' }}>₹</span>
             <input
               type="number"
               placeholder="Current bank balance"
               value={inputVal}
               onChange={(e) => setInputVal(e.target.value)}
-              className="flex-1 bg-transparent text-white text-sm outline-none"
+              className="flex-1 bg-transparent text-sm outline-none"
+              style={{ color: 'var(--text)' }}
               inputMode="decimal"
             />
           </div>
@@ -79,12 +83,14 @@ export default function BalanceCheck({ lastUpdated }: BalanceCheckProps) {
             placeholder="Note (optional, e.g. 'SBI as of today')"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            className="w-full bg-[#0f0f23] rounded-xl px-3 py-2 text-white text-sm outline-none placeholder:text-[#8888aa]"
+            className="w-full rounded-xl px-3 py-2.5 text-sm outline-none"
+            style={{ backgroundColor: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}
           />
           <button
             onClick={saveSnapshot}
             disabled={saving || !inputVal}
-            className="w-full py-2 rounded-xl bg-[#6c63ff] text-white text-sm font-medium disabled:opacity-50"
+            className="w-full py-2 rounded-xl text-white text-sm font-medium disabled:opacity-50"
+            style={{ backgroundColor: 'var(--accent)' }}
           >
             {saving ? 'Saving…' : 'Save snapshot'}
           </button>
@@ -92,47 +98,41 @@ export default function BalanceCheck({ lastUpdated }: BalanceCheckProps) {
       )}
 
       {!data?.snapshot ? (
-        <p className="text-xs text-[#8888aa]">
+        <p className="text-xs" style={{ color: 'var(--muted)' }}>
           Enter your real bank balance once. After that, every transaction is tracked against it — you can instantly see if the numbers match.
         </p>
       ) : (
         <div className="space-y-3">
-          {/* Snapshot row */}
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-xs text-[#8888aa]">Snapshot balance</p>
-              <p className="text-xs text-[#555577] mt-0.5">
+              <p className="text-xs" style={{ color: 'var(--muted)' }}>Snapshot balance</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text3)' }}>
                 {new Date(data.snapshot.snapshot_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
                 {data.snapshot.note ? ` · ${data.snapshot.note}` : ''}
               </p>
             </div>
-            <span className="text-white font-semibold text-sm">{fmt(data.snapshot.actual_balance)}</span>
+            <span className="font-semibold text-sm" style={{ color: 'var(--text)' }}>{fmt(data.snapshot.actual_balance)}</span>
           </div>
 
-          {/* Delta row */}
           {data.delta != null && (
             <div className="flex justify-between items-center">
-              <div>
-                <p className="text-xs text-[#8888aa]">Transactions since ({data.tx_count})</p>
-              </div>
-              <span className={`font-semibold text-sm ${data.delta >= 0 ? 'text-[#00d9a6]' : 'text-[#ff6b6b]'}`}>
+              <p className="text-xs" style={{ color: 'var(--muted)' }}>Transactions since ({data.tx_count})</p>
+              <span className="font-semibold text-sm" style={{ color: data.delta >= 0 ? 'var(--income)' : 'var(--expense)' }}>
                 {data.delta >= 0 ? '+' : ''}{fmt(data.delta)}
               </span>
             </div>
           )}
 
-          {/* Divider */}
-          <div className="border-t border-[#2a2a4a]" />
+          <div style={{ borderTop: '1px solid var(--border)' }} />
 
-          {/* Computed balance */}
           {hasDrift && (
             <div className="flex justify-between items-center">
-              <p className="text-sm font-semibold text-white">Computed balance</p>
-              <span className="text-lg font-bold text-white">{fmt(data.computed!)}</span>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Computed balance</p>
+              <span className="text-lg font-bold" style={{ color: 'var(--text)' }}>{fmt(data.computed!)}</span>
             </div>
           )}
 
-          <p className="text-xs text-[#8888aa] pt-1">
+          <p className="text-xs pt-1" style={{ color: 'var(--muted)' }}>
             Compare this with your actual bank app balance. If they match ✅ — all transactions are captured. A gap means some transactions were missed.
           </p>
         </div>

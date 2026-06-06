@@ -6,6 +6,7 @@ import AddTransactionModal from '@/components/AddTransactionModal';
 import TransactionCard from '@/components/TransactionCard';
 import SummaryCard from '@/components/SummaryCard';
 import BalanceCheck from '@/components/BalanceCheck';
+import ThemeToggle from '@/components/ThemeToggle';
 
 type FilterTab = 'all' | 'income' | 'expense';
 
@@ -93,21 +94,31 @@ export default function Dashboard() {
   const monthLabel = new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' });
 
   return (
-    <div className="max-w-md mx-auto pb-24">
+    <div className="max-w-lg mx-auto pb-24 min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
       {/* Header */}
-      <header className="px-4 pt-12 pb-4">
-        <h1 className="text-2xl font-bold text-white">FinTrack</h1>
-        <p className="text-sm text-[#8888aa] mt-0.5">{monthLabel}</p>
+      <header className="px-4 pt-12 pb-5 flex items-start justify-between">
+        <div>
+          <div className="flex items-center gap-2.5 mb-1">
+            <div className="p-2 rounded-xl" style={{ background: 'rgba(108,99,255,0.12)', border: '1px solid rgba(108,99,255,0.2)' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+              </svg>
+            </div>
+            <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: 'var(--text)' }}>FinTrack</h1>
+          </div>
+          <p className="text-sm ml-0.5" style={{ color: 'var(--text3)' }}>{monthLabel}</p>
+        </div>
+        <div className="mt-1"><ThemeToggle /></div>
       </header>
 
       {/* Summary Cards */}
-      <div className="px-4 grid grid-cols-3 gap-3 mb-6">
-        <SummaryCard label="Income" amount={totalIncome} color="#00d9a6" />
-        <SummaryCard label="Expense" amount={totalExpense} color="#ff6b6b" />
+      <div className="px-4 grid grid-cols-3 gap-3 mb-5">
+        <SummaryCard label="Income" amount={totalIncome} color="var(--income)" />
+        <SummaryCard label="Expense" amount={totalExpense} color="var(--expense)" />
         <SummaryCard
           label="Savings"
           amount={netSavings}
-          color={netSavings >= 0 ? '#6c63ff' : '#ff6b6b'}
+          color={netSavings >= 0 ? 'var(--accent)' : 'var(--expense)'}
         />
       </div>
 
@@ -120,11 +131,11 @@ export default function Dashboard() {
           <button
             key={tab}
             onClick={() => setFilter(tab)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors capitalize ${
-              filter === tab
-                ? 'bg-[#6c63ff] text-white'
-                : 'bg-[#1a1a2e] text-[#8888aa] border border-[#2a2a4a]'
-            }`}
+            className="px-4 py-1.5 rounded-xl text-sm font-bold transition-all capitalize active:scale-95"
+            style={filter === tab
+              ? { backgroundColor: 'var(--accent)', color: '#fff', boxShadow: '0 2px 14px rgba(79,70,229,0.35)' }
+              : { backgroundColor: 'var(--card)', color: 'var(--text3)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)' }
+            }
           >
             {tab}
           </button>
@@ -132,16 +143,17 @@ export default function Dashboard() {
       </div>
 
       {/* Transactions list */}
-      <div className="px-4 space-y-3">
+      <div className="px-4 space-y-2.5">
         {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="w-8 h-8 border-2 border-[#6c63ff] border-t-transparent rounded-full animate-spin" />
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
+            <p className="text-xs" style={{ color: 'var(--text3)' }}>Loading transactions…</p>
           </div>
         ) : transactions.length === 0 ? (
-          <div className="text-center py-16 text-[#8888aa]">
-            <div className="text-4xl mb-3">💳</div>
-            <p className="text-sm">No transactions yet this month.</p>
-            <p className="text-xs mt-1">Tap + to add one manually.</p>
+          <div className="text-center py-16">
+            <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-3xl" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>💳</div>
+            <p className="text-sm font-medium" style={{ color: 'var(--text2)' }}>No transactions yet this month.</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--text4)' }}>Tap + to add one manually.</p>
           </div>
         ) : (
           transactions.slice(0, 20).map((tx) => (
@@ -158,11 +170,16 @@ export default function Dashboard() {
       {/* Floating Add Button */}
       <button
         onClick={() => setShowAdd(true)}
-        className="fixed bottom-8 right-6 w-14 h-14 bg-[#6c63ff] rounded-full shadow-lg flex items-center justify-center text-white text-2xl font-light active:scale-95 transition-transform z-40"
+        className="fixed bottom-24 right-5 w-14 h-14 rounded-2xl flex items-center justify-center text-white active:scale-90 transition-all z-40"
         aria-label="Add transaction"
-        style={{ boxShadow: '0 4px 24px rgba(108,99,255,0.4)' }}
+        style={{
+          background: 'linear-gradient(135deg, var(--accent), #8b5cf6)',
+          boxShadow: '0 4px 20px rgba(79,70,229,0.45), 0 1px 0 rgba(255,255,255,0.15) inset',
+        }}
       >
-        +
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
       </button>
 
       {/* Add Transaction Modal */}

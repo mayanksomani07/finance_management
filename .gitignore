@@ -21,3 +21,6 @@ yarn-error.log*
 
 # Optional: Mac system files
 *.DS_Store
+
+# Playwright MCP browser session logs
+.playwright-mcp/
