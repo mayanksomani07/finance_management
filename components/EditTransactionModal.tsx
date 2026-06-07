@@ -3,9 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import type { LocalTransaction } from '@/lib/localStore';
 
-// Sub-categories matching the categorization system
 const EXPENSE_SUBCATS = [
-  // Need
   { value: 'PG Rent',           main: 'Need',       emoji: '🏠', label: 'PG Rent' },
   { value: 'Health',            main: 'Need',       emoji: '💊', label: 'Health' },
   { value: 'Recharge',          main: 'Need',       emoji: '📱', label: 'Recharge' },
@@ -16,23 +14,21 @@ const EXPENSE_SUBCATS = [
   { value: 'Washing',           main: 'Need',       emoji: '👕', label: 'Washing' },
   { value: 'Xerox',             main: 'Need',       emoji: '📄', label: 'Xerox' },
   { value: 'Interest',          main: 'Need',       emoji: '💹', label: 'Interest' },
-  // Want
   { value: 'Food',              main: 'Want',       emoji: '🍽️', label: 'Food' },
   { value: 'Groceries',         main: 'Want',       emoji: '🛒', label: 'Groceries' },
   { value: 'Transportation',    main: 'Want',       emoji: '🚌', label: 'Transport' },
   { value: 'Leisure',           main: 'Want',       emoji: '🎮', label: 'Leisure' },
   { value: 'Gifts',             main: 'Want',       emoji: '🎁', label: 'Gifts' },
   { value: 'Other',             main: 'Want',       emoji: '📋', label: 'Other' },
-  // Investment
   { value: 'Investment',        main: 'Investment', emoji: '📈', label: 'Investment' },
   { value: 'Investment (Debt)', main: 'Investment', emoji: '🏦', label: 'Invest (Debt)' },
 ];
 
 const INCOME_SUBCATS = [
-  { value: 'Paycheck', emoji: '💰', label: 'Payslip' },
-  { value: 'Interest', emoji: '💹', label: 'Interest' },
-  { value: 'Money Back', emoji: '↩️', label: 'Money Back' },
-  { value: 'Gift', emoji: '🎁', label: 'Gift' },
+  { value: 'Paycheck',    emoji: '💰', label: 'Payslip' },
+  { value: 'Interest',    emoji: '💹', label: 'Interest' },
+  { value: 'Money Back',  emoji: '↩️', label: 'Money Back' },
+  { value: 'Gift',        emoji: '🎁', label: 'Gift' },
 ];
 
 const MAIN_COLORS: Record<string, string> = {
@@ -40,30 +36,28 @@ const MAIN_COLORS: Record<string, string> = {
 };
 
 interface Props {
+  transaction: LocalTransaction;
   onClose: () => void;
-  onAdded: (tx: LocalTransaction) => void;
+  onSaved: (updated: LocalTransaction) => void;
 }
 
-export default function AddTransactionModal({ onClose, onAdded }: Props) {
-  const [amount, setAmount] = useState('');
-  const [type, setType] = useState<'income' | 'expense'>('expense');
-  const [subCat, setSubCat] = useState('Food');
-  const [comment, setComment] = useState('');
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+export default function EditTransactionModal({ transaction, onClose, onSaved }: Props) {
+  const [amount, setAmount]   = useState(String(transaction.amount));
+  const [type, setType]       = useState<'income' | 'expense'>(transaction.type);
+  const [subCat, setSubCat]   = useState(transaction.category);
+  const [comment, setComment] = useState(transaction.comment);
+  const [date, setDate]       = useState(transaction.date.slice(0, 10));
+  const [error, setError]     = useState('');
 
   const amountRef = useRef<HTMLInputElement>(null);
   useEffect(() => { amountRef.current?.focus(); }, []);
-  useEffect(() => { setSubCat(type === 'expense' ? 'Food' : 'Paycheck'); }, [type]);
 
   const typeColor = type === 'income' ? 'var(--income)' : 'var(--expense)';
 
-  // Group expense subcats by main
   const grouped = type === 'expense'
     ? [
-        { main: 'Need', items: EXPENSE_SUBCATS.filter(s => s.main === 'Need') },
-        { main: 'Want', items: EXPENSE_SUBCATS.filter(s => s.main === 'Want') },
+        { main: 'Need',       items: EXPENSE_SUBCATS.filter(s => s.main === 'Need') },
+        { main: 'Want',       items: EXPENSE_SUBCATS.filter(s => s.main === 'Want') },
         { main: 'Investment', items: EXPENSE_SUBCATS.filter(s => s.main === 'Investment') },
       ]
     : [{ main: 'Income', items: INCOME_SUBCATS.map(s => ({ ...s, main: 'Income' })) }];
@@ -73,27 +67,17 @@ export default function AddTransactionModal({ onClose, onAdded }: Props) {
     setError('');
     const parsedAmount = parseFloat(amount);
     if (!parsedAmount || parsedAmount <= 0) { setError('Enter a valid amount.'); return; }
-    setLoading(true);
 
-    const tx: LocalTransaction = {
-      id: crypto.randomUUID(),
-      date: date + 'T00:00:00',
-      category: subCat,
+    const updated: LocalTransaction = {
+      ...transaction,
       amount: parsedAmount,
-      comment: comment.trim(),
       type,
-      source: 'manual',
+      category: subCat,
+      comment: comment.trim(),
+      date: date + 'T00:00:00',
     };
 
-    // Persist to localStorage
-    try {
-      const existing = JSON.parse(localStorage.getItem('manual_transactions') ?? '[]');
-      existing.unshift(tx);
-      localStorage.setItem('manual_transactions', JSON.stringify(existing));
-    } catch { /* ignore */ }
-
-    setLoading(false);
-    onAdded(tx);
+    onSaved(updated);
   }
 
   return (
@@ -111,16 +95,18 @@ export default function AddTransactionModal({ onClose, onAdded }: Props) {
           <div className="w-9 h-1 rounded-full" style={{ backgroundColor: 'var(--border)' }} />
         </div>
 
-        {/* Type toggle + close */}
+        {/* Header */}
         <div className="px-5 py-3 flex items-center gap-3">
-          <div className="flex flex-1 p-1 rounded-2xl" style={{ backgroundColor: 'var(--bg2)' }}>
-            {(['expense', 'income'] as const).map((t) => (
-              <button key={t} type="button" onClick={() => setType(t)}
-                className="flex-1 py-2 rounded-xl text-sm font-semibold transition-all active:scale-95"
+          <div className="flex-1">
+            <p className="text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--text4)' }}>Edit Transaction</p>
+          </div>
+          <div className="flex p-1 rounded-2xl" style={{ backgroundColor: 'var(--bg2)' }}>
+            {(['expense', 'income'] as const).map(t => (
+              <button key={t} type="button" onClick={() => { setType(t); setSubCat(t === 'expense' ? 'Food' : 'Paycheck'); }}
+                className="py-2 px-4 rounded-xl text-sm font-semibold transition-all active:scale-95"
                 style={type === t
                   ? { backgroundColor: t === 'income' ? 'var(--income)' : 'var(--expense)', color: '#fff' }
-                  : { color: 'var(--text3)' }}
-              >
+                  : { color: 'var(--text3)' }}>
                 {t === 'income' ? 'Income' : 'Expense'}
               </button>
             ))}
@@ -144,7 +130,7 @@ export default function AddTransactionModal({ onClose, onAdded }: Props) {
                 <input
                   ref={amountRef}
                   type="number" inputMode="decimal" min="0.01" step="0.01"
-                  value={amount} onChange={(e) => setAmount(e.target.value)}
+                  value={amount} onChange={e => setAmount(e.target.value)}
                   placeholder="0"
                   className="bg-transparent font-bold focus:outline-none text-3xl"
                   style={{
@@ -155,20 +141,19 @@ export default function AddTransactionModal({ onClose, onAdded }: Props) {
               </div>
             </div>
 
-            {/* Sub-category grouped */}
+            {/* Category */}
             <div>
               <p className="text-[10px] font-semibold tracking-[0.12em] uppercase mb-2.5" style={{ color: 'var(--text4)' }}>Category</p>
               <div className="space-y-3">
                 {grouped.map(({ main, items }) => (
                   <div key={main}>
                     {type === 'expense' && (
-                      <p className="text-[10px] font-bold mb-1.5 px-0.5"
-                        style={{ color: MAIN_COLORS[main] ?? 'var(--text3)' }}>
+                      <p className="text-[10px] font-bold mb-1.5 px-0.5" style={{ color: MAIN_COLORS[main] ?? 'var(--text3)' }}>
                         {main}
                       </p>
                     )}
                     <div className="grid grid-cols-4 gap-1.5">
-                      {items.map((c) => {
+                      {items.map(c => {
                         const active = subCat === c.value;
                         const col = type === 'expense' ? (MAIN_COLORS[c.main] ?? typeColor) : typeColor;
                         return (
@@ -176,12 +161,9 @@ export default function AddTransactionModal({ onClose, onAdded }: Props) {
                             className="flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl text-center transition-all active:scale-95"
                             style={active
                               ? { background: `${col}18`, outline: `2px solid ${col}`, outlineOffset: '-1px' }
-                              : { background: 'var(--bg2)', outline: '1.5px solid var(--border)', outlineOffset: '-1px' }
-                            }
-                          >
+                              : { background: 'var(--bg2)', outline: '1.5px solid var(--border)', outlineOffset: '-1px' }}>
                             <span style={{ fontSize: '1.25rem', lineHeight: 1 }}>{c.emoji}</span>
-                            <p className="text-[9px] font-bold leading-tight"
-                              style={{ color: active ? col : 'var(--text3)' }}>{c.label}</p>
+                            <p className="text-[9px] font-bold leading-tight" style={{ color: active ? col : 'var(--text3)' }}>{c.label}</p>
                           </button>
                         );
                       })}
@@ -196,7 +178,7 @@ export default function AddTransactionModal({ onClose, onAdded }: Props) {
               <p className="text-[10px] font-semibold tracking-[0.12em] uppercase mb-2" style={{ color: 'var(--text4)' }}>
                 Note <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span>
               </p>
-              <input type="text" value={comment} onChange={(e) => setComment(e.target.value)}
+              <input type="text" value={comment} onChange={e => setComment(e.target.value)}
                 placeholder="What was this for?"
                 className="w-full rounded-2xl px-4 py-3 text-sm focus:outline-none"
                 style={{ backgroundColor: 'var(--bg2)', color: 'var(--text)' }} />
@@ -205,7 +187,7 @@ export default function AddTransactionModal({ onClose, onAdded }: Props) {
             {/* Date */}
             <div>
               <p className="text-[10px] font-semibold tracking-[0.12em] uppercase mb-2" style={{ color: 'var(--text4)' }}>Date</p>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+              <input type="date" value={date} onChange={e => setDate(e.target.value)}
                 className="w-full rounded-2xl px-4 py-3 text-sm focus:outline-none"
                 style={{ backgroundColor: 'var(--bg2)', color: 'var(--text)' }} />
             </div>
@@ -223,10 +205,10 @@ export default function AddTransactionModal({ onClose, onAdded }: Props) {
                 style={{ color: 'var(--text3)', background: 'var(--bg2)' }}>
                 Cancel
               </button>
-              <button type="submit" disabled={loading || !amount}
+              <button type="submit" disabled={!amount}
                 className="flex-1 py-3.5 rounded-2xl text-white font-bold text-sm disabled:opacity-40 active:scale-95 transition-all"
                 style={{ background: type === 'income' ? 'var(--income)' : 'var(--expense)' }}>
-                {loading ? 'Saving…' : `Save ${type === 'income' ? 'Income' : 'Expense'}`}
+                Save Changes
               </button>
             </div>
           </div>

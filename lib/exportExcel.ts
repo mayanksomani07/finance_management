@@ -17,73 +17,60 @@ export interface WealthSnapshot {
   bankBalance: number;     cashInHand: number;      mobikwik: number;
   bankTotal: number;
   creditCardDue: number;   payToSomeone: number;
+  // granular breakdowns
+  eqEquityInvested?: number;   eqEquityCurrent?: number;
+  eqGoldInvested?: number;     eqGoldCurrent?: number;
+  eqSilverInvested?: number;   eqSilverCurrent?: number;
+  eqForeignInvested?: number;  eqForeignCurrent?: number;
+  mfEquityInvested?: number;   mfEquityCurrent?: number;
+  mfGoldInvested?: number;     mfGoldCurrent?: number;
+  mfSilverInvested?: number;   mfSilverCurrent?: number;
+  mfDebtInvested?: number;     mfDebtCurrent?: number;
+  bondInvested?: number;       bondCurrent?: number;
+  fdInvested?: number;         fdCurrent?: number;
 }
 
 export type ExportMode = 'transactions' | 'wealth' | 'both';
 
-// ── Palette — ALL light backgrounds, no black/navy ─────────────────────────
+// ── Colour Palette ─────────────────────────────────────────────────────────
 
 const P = {
-  // brand
-  purple:     'FF6C63FF',
-  purpleDk:   'FF4338CA',
-  purplePale: 'FFEEF0FF',
-  purpleMid:  'FFD5D3FF',
-  // teal
-  teal:       'FF00C9A7',
-  tealDk:     'FF0A7A58',
-  tealPale:   'FFD0FFF5',
-  // amber
-  amber:      'FFCA8A04',
-  amberPale:  'FFFEF3C7',
-  // red / expense
-  red:        'FFE53935',
-  redDk:      'FFC62828',
-  redPale:    'FFFFF5F5',
-  redMid:     'FFFECACA',
-  // green / income
-  green:      'FF15803D',
-  greenDk:    'FF065F46',
-  greenPale:  'FFF0FDF4',
-  greenMid:   'FFBBF7D0',
-  // orange
-  orange:     'FFD97706',
-  orangePale: 'FFFEF8EC',
-  // violet
-  violet:     'FF7C3AED',
-  violetPale: 'FFF5F3FF',
-  violetMid:  'FFEDE9FE',
-  // slate
-  slate:      'FF334155',
-  slateLight: 'FF64748B',
-  slatePale:  'FFF8FAFC',
-  slateMid:   'FFE2E8F0',
-  // neutrals
-  white:      'FFFFFFFF',
-  gray50:     'FFF9FAFB',
-  gray100:    'FFF3F4F6',
-  gray200:    'FFE5E7EB',
-  gray400:    'FF9CA3AF',
-  gray600:    'FF4B5563',
-  gray800:    'FF1F2937',
-  // category colours (text / dark enough to read on pale bg)
-  need:       'FF1D4ED8',
-  needPale:   'FFEFF6FF',
-  needMid:    'FFBFDBFE',
-  want:       'FFC2410C',
-  wantPale:   'FFFFF7ED',
-  wantMid:    'FFFED7AA',
-  invest:     'FF6D28D9',
-  investPale: 'FFF5F3FF',
-  investMid:  'FFEDE9FE',
-  income:     'FF065F46',
-  incomePale: 'FFF0FDF4',
-  incomeMid:  'FFBBF7D0',
+  purple:     'FF6C63FF', purpleDk:   'FF4338CA', purplePale: 'FFEEF0FF', purpleMid:  'FFD5D3FF',
+  teal:       'FF00C9A7', tealDk:     'FF0A7A58', tealPale:   'FFD0FFF5', tealMid:    'FF99F6E4',
+  amber:      'FFCA8A04', amberDk:    'FF92400E', amberPale:  'FFFEF3C7', amberMid:   'FFFDE68A',
+  red:        'FFE53935', redDk:      'FFC62828', redPale:    'FFFFF5F5', redMid:     'FFFECACA',
+  green:      'FF15803D', greenDk:    'FF065F46', greenPale:  'FFF0FDF4', greenMid:   'FFBBF7D0',
+  orange:     'FFD97706', orangeDk:   'FFC2410C', orangePale: 'FFFEF8EC', orangeMid:  'FFFED7AA',
+  violet:     'FF7C3AED', violetPale: 'FFF5F3FF', violetMid:  'FFEDE9FE',
+  silver:     'FF64748B', silverPale: 'FFF1F5F9', silverMid:  'FFE2E8F0',
+  slate:      'FF334155', slateLight: 'FF64748B', slatePale:  'FFF8FAFC', slateMid:   'FFE2E8F0',
+  white:      'FFFFFFFF', gray50:     'FFF9FAFB', gray100:    'FFF3F4F6', gray200:    'FFE5E7EB',
+  gray400:    'FF9CA3AF', gray600:    'FF4B5563', gray800:    'FF1F2937',
+  need:       'FF1D4ED8', needPale:   'FFEFF6FF', needMid:    'FFBFDBFE',
+  want:       'FFC2410C', wantPale:   'FFFFF7ED', wantMid:    'FFFED7AA',
+  invest:     'FF6D28D9', investPale: 'FFF5F3FF', investMid:  'FFEDE9FE',
+  income:     'FF065F46', incomePale: 'FFF0FDF4', incomeMid:  'FFBBF7D0',
+  // gold-specific
+  gold:       'FFB7860B', goldPale:   'FFFEF9E7', goldMid:    'FFFDE68A',
 };
 
-// Hex colours for Chart.js (no ARGB prefix)
-const CHART_COLORS = ['#6C63FF','#00C9A7','#CA8A04','#D97706','#7C3AED','#15803D','#64748B','#E53935'];
-const CHART_PALE   = ['#EEF0FF','#D0FFF5','#FEF3C7','#FEF8EC','#F5F3FF','#F0FDF4','#F8FAFC','#FFF5F5'];
+// Vivid palette for charts — each asset class has a dedicated slot
+const C = {
+  equity:  '#6C63FF',
+  mfEq:    '#00C9A7',
+  gold:    '#F59E0B',
+  silver:  '#94A3B8',
+  foreign: '#3B82F6',
+  crypto:  '#F97316',
+  debt:    '#8B5CF6',
+  pf:      '#10B981',
+  bank:    '#64748B',
+  income:  '#10B981',
+  expense: '#F45B5B',
+  net:     '#6C63FF',
+};
+const CHART_COLORS = [C.equity, C.mfEq, C.gold, C.silver, C.foreign, C.crypto, C.debt, C.pf, C.bank];
+const CHART_PALE   = ['#EEF0FF','#D0FFF5','#FEF3C7','#F1F5F9','#EFF6FF','#FEF8EC','#F5F3FF','#F0FDF4','#F8FAFC'];
 
 const CATEGORY_COLORS: Record<string, { text: string; pale: string; mid: string }> = {
   Need:       { text: P.need,   pale: P.needPale,   mid: P.needMid   },
@@ -141,70 +128,239 @@ function align(h: EjAlignH = 'left', v: EjAlignV = 'middle', wrap = false): EjAl
   return { horizontal: h, vertical: v, wrapText: wrap };
 }
 
-// ── Chart image generation (browser canvas → PNG base64) ──────────────────
+// ── Chart image generation ─────────────────────────────────────────────────
 
-async function renderChartPng(config: object, width = 600, height = 320): Promise<string> {
+async function renderChartPng(config: object, width = 780, height = 420): Promise<string> {
   const canvas = document.createElement('canvas');
   canvas.width  = width;
   canvas.height = height;
   const { Chart, registerables } = await import('chart.js');
   Chart.register(...registerables);
   const ctx = canvas.getContext('2d')!;
-  // white background
-  ctx.fillStyle = '#ffffff';
+
+  // White background with subtle gradient
+  const grad = ctx.createLinearGradient(0, 0, 0, height);
+  grad.addColorStop(0, '#FFFFFF');
+  grad.addColorStop(1, '#F8F9FF');
+  ctx.fillStyle = grad;
   ctx.fillRect(0, 0, width, height);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const chart = new Chart(ctx, config as any);
-  // wait one frame for rendering
-  await new Promise(r => setTimeout(r, 60));
+
+  // Rounded border
+  ctx.strokeStyle = '#E0E3F5';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(1, 1, width - 2, height - 2);
+
+  // eslint-disable-next-line
+  const chart = new Chart(ctx, config as never);
+  await new Promise(r => setTimeout(r, 120));
   const png = canvas.toDataURL('image/png').replace('data:image/png;base64,', '');
   chart.destroy();
   return png;
 }
 
-async function makePieChart(labels: string[], values: number[], title: string): Promise<string> {
+// ── Donut / Pie chart — large, label-rich ──────────────────────────────────
+
+async function makePieChart(labels: string[], values: number[], title: string, subtitle = ''): Promise<string> {
+  const total = values.reduce((a, b) => a + b, 0);
+  const filtered = labels.map((l, i) => ({ l, v: values[i] })).filter(x => x.v > 0);
+  const fLabels = filtered.map(x => x.l);
+  const fValues = filtered.map(x => x.v);
+  const colors  = fLabels.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]);
+
   return renderChartPng({
     type: 'doughnut',
     data: {
-      labels,
+      labels: fLabels,
       datasets: [{
-        data: values,
-        backgroundColor: CHART_COLORS.slice(0, labels.length),
-        borderColor: '#ffffff',
-        borderWidth: 3,
-        hoverOffset: 10,
+        data: fValues,
+        backgroundColor: colors,
+        borderColor: '#FFFFFF',
+        borderWidth: 4,
+        hoverOffset: 20,
+        hoverBorderWidth: 3,
+        hoverBorderColor: '#FFFFFF',
       }],
     },
     options: {
       responsive: false,
       animation: false,
+      cutout: '52%',
+      layout: { padding: { top: 10, bottom: 10, left: 10, right: 10 } },
       plugins: {
         legend: {
           position: 'right',
-          labels: { font: { size: 12, family: 'Calibri' }, padding: 14, color: '#1F2937' },
-        },
-        title: {
-          display: true,
-          text: title,
-          font: { size: 15, family: 'Calibri', weight: 'bold' },
-          color: '#1F2937',
-          padding: { bottom: 16 },
-        },
-        tooltip: {
-          callbacks: {
-            label: (ctx: { label: string; parsed: number; dataset: { data: number[] } }) => {
-              const total = ctx.dataset.data.reduce((a: number, b: number) => a + b, 0);
-              const pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : '0';
-              return ` ${ctx.label}: ${fmtShort(ctx.parsed)} (${pct}%)`;
+          align: 'center',
+          labels: {
+            font: { size: 12, family: 'Calibri', weight: '700' },
+            padding: 16,
+            color: '#1F2937',
+            usePointStyle: true,
+            pointStyleWidth: 12,
+            generateLabels: (chart: { data: { labels: string[]; datasets: Array<{ data: number[]; backgroundColor: string[] }> } }) => {
+              return chart.data.labels.map((label: string, i: number) => {
+                const val = chart.data.datasets[0].data[i];
+                const pct = total > 0 ? ((val / total) * 100).toFixed(1) : '0';
+                return {
+                  text: `${label}   ${pct}%   ${fmtShort(val)}`,
+                  fillStyle: chart.data.datasets[0].backgroundColor[i],
+                  strokeStyle: '#fff',
+                  lineWidth: 2,
+                  index: i,
+                  pointStyle: 'circle',
+                  hidden: false,
+                };
+              });
             },
           },
         },
+        title: {
+          display: true,
+          text: subtitle ? [title, subtitle] : title,
+          font: { size: 17, family: 'Calibri', weight: 'bold' },
+          color: '#3730A3',
+          padding: { top: 14, bottom: 20 },
+        },
+        tooltip: {
+          enabled: false,
+        },
       },
     },
-  }, 640, 340);
+  }, 820, 420);
 }
 
+// ── Grouped bar chart ──────────────────────────────────────────────────────
+
 async function makeBarChart(
+  labels: string[],
+  datasets: { label: string; data: number[]; color: string }[],
+  title: string,
+  subtitle = '',
+): Promise<string> {
+  return renderChartPng({
+    type: 'bar',
+    data: {
+      labels,
+      datasets: datasets.map(d => ({
+        label: d.label,
+        data: d.data,
+        backgroundColor: d.data.map(v => {
+          if (d.label === 'Net') return v >= 0 ? C.net + 'DD' : C.expense + 'DD';
+          return d.color + 'D0';
+        }),
+        borderColor: d.data.map(v => {
+          if (d.label === 'Net') return v >= 0 ? C.net : C.expense;
+          return d.color;
+        }),
+        borderWidth: 2,
+        borderRadius: 8,
+        borderSkipped: false,
+      })),
+    },
+    options: {
+      responsive: false,
+      animation: false,
+      layout: { padding: { top: 10, left: 10, right: 10, bottom: 10 } },
+      plugins: {
+        legend: {
+          position: 'top',
+          align: 'end',
+          labels: {
+            font: { size: 12, family: 'Calibri', weight: '700' },
+            color: '#1F2937',
+            padding: 18,
+            usePointStyle: true,
+            pointStyleWidth: 12,
+            boxHeight: 10,
+          },
+        },
+        title: {
+          display: true,
+          text: subtitle ? [title, subtitle] : title,
+          font: { size: 17, family: 'Calibri', weight: 'bold' },
+          color: '#3730A3',
+          padding: { top: 14, bottom: 16 },
+        },
+        tooltip: { enabled: false },
+      },
+      scales: {
+        x: {
+          ticks: { font: { size: 12, family: 'Calibri', weight: '700' }, color: '#374151', maxRotation: 25 },
+          grid: { color: '#EEF0FF', lineWidth: 1.5 },
+          border: { color: '#D0D5F5', width: 2 },
+        },
+        y: {
+          ticks: {
+            font: { size: 11, family: 'Calibri', weight: '600' }, color: '#6B7280',
+            callback: (v: number) => fmtShort(v),
+            maxTicksLimit: 8,
+          },
+          grid: { color: '#EEF0FF', lineWidth: 1.5 },
+          border: { color: '#D0D5F5', width: 2 },
+        },
+      },
+    },
+  }, 820, 440);
+}
+
+// ── Horizontal bar chart ───────────────────────────────────────────────────
+
+async function makeHorizontalBarChart(
+  labels: string[],
+  values: number[],
+  colors: string[],
+  title: string,
+  subtitle = '',
+): Promise<string> {
+  const h = Math.max(360, labels.length * 44 + 120);
+  return renderChartPng({
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Amount',
+        data: values,
+        backgroundColor: colors.map(c => c + 'CC'),
+        borderColor: colors,
+        borderWidth: 2,
+        borderRadius: 7,
+        borderSkipped: false,
+      }],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: false,
+      animation: false,
+      layout: { padding: { top: 8, left: 10, right: 20, bottom: 10 } },
+      plugins: {
+        legend: { display: false },
+        title: {
+          display: true,
+          text: subtitle ? [title, subtitle] : title,
+          font: { size: 17, family: 'Calibri', weight: 'bold' },
+          color: '#3730A3',
+          padding: { top: 14, bottom: 16 },
+        },
+        tooltip: { enabled: false },
+      },
+      scales: {
+        x: {
+          ticks: { font: { size: 11, family: 'Calibri', weight: '600' }, color: '#6B7280', callback: (v: number) => fmtShort(v), maxTicksLimit: 7 },
+          grid: { color: '#EEF0FF', lineWidth: 1.5 },
+          border: { color: '#D0D5F5', width: 2 },
+        },
+        y: {
+          ticks: { font: { size: 12, family: 'Calibri', weight: '700' }, color: '#1F2937' },
+          grid: { display: false },
+          border: { color: '#D0D5F5', width: 2 },
+        },
+      },
+    },
+  }, 820, h);
+}
+
+// ── Stacked bar chart for asset breakdown ──────────────────────────────────
+
+async function makeStackedBarChart(
   labels: string[],
   datasets: { label: string; data: number[]; color: string }[],
   title: string,
@@ -219,63 +375,54 @@ async function makeBarChart(
         backgroundColor: d.color + 'CC',
         borderColor: d.color,
         borderWidth: 1.5,
-        borderRadius: 6,
+        borderRadius: 0,
+        borderSkipped: false,
       })),
     },
     options: {
       responsive: false,
       animation: false,
+      layout: { padding: { top: 10, left: 10, right: 10, bottom: 10 } },
       plugins: {
         legend: {
           position: 'top',
-          labels: { font: { size: 11, family: 'Calibri' }, color: '#1F2937' },
+          align: 'end',
+          labels: {
+            font: { size: 11, family: 'Calibri', weight: '700' },
+            color: '#1F2937',
+            padding: 14,
+            usePointStyle: true,
+            pointStyleWidth: 10,
+          },
         },
         title: {
           display: true,
           text: title,
-          font: { size: 15, family: 'Calibri', weight: 'bold' },
-          color: '#1F2937',
-          padding: { bottom: 12 },
+          font: { size: 17, family: 'Calibri', weight: 'bold' },
+          color: '#3730A3',
+          padding: { top: 14, bottom: 16 },
         },
+        tooltip: { enabled: false },
       },
       scales: {
         x: {
-          ticks: { font: { size: 11, family: 'Calibri' }, color: '#4B5563' },
-          grid: { color: '#F3F4F6' },
+          stacked: true,
+          ticks: { font: { size: 11, family: 'Calibri', weight: '700' }, color: '#374151' },
+          grid: { color: '#EEF0FF' },
+          border: { color: '#D0D5F5', width: 2 },
         },
         y: {
-          ticks: {
-            font: { size: 10, family: 'Calibri' }, color: '#4B5563',
-            callback: (v: number) => fmtShort(v),
-          },
-          grid: { color: '#F3F4F6' },
+          stacked: true,
+          ticks: { font: { size: 10, family: 'Calibri' }, color: '#6B7280', callback: (v: number) => fmtShort(v) },
+          grid: { color: '#EEF0FF', lineWidth: 1.5 },
+          border: { color: '#D0D5F5', width: 2 },
         },
       },
     },
-  }, 640, 340);
+  }, 820, 440);
 }
 
-// ── Embed image helper ─────────────────────────────────────────────────────
-
-async function embedImage(
-  wb: import('exceljs').Workbook,
-  ws: import('exceljs').Worksheet,
-  base64: string,
-  tl: { col: number; row: number },
-  ext: { col: number; row: number },
-) {
-  const imgId = wb.addImage({ base64, extension: 'png' });
-  ws.addImage(imgId, {
-    tl: { col: tl.col, row: tl.row },
-    ext: { width: 480, height: 260 },
-  } as Parameters<typeof ws.addImage>[1]);
-  // reserve row height for image area
-  for (let r = tl.row + 1; r <= tl.row + ext.row; r++) {
-    ws.getRow(r).height = 15;
-  }
-}
-
-// ── Section header helper (light purple gradient) ──────────────────────────
+// ── Section header helper ──────────────────────────────────────────────────
 
 function sectionHeader(ws: import('exceljs').Worksheet, rowN: number, cols: number, label: string, color = P.purpleDk, pale = P.purpleMid) {
   ws.mergeCells(`A${rowN}:${colLetter(cols)}${rowN}`);
@@ -292,6 +439,47 @@ function colLetter(n: number) {
   return String.fromCharCode(64 + n);
 }
 
+// ── Granular wealth derivation ─────────────────────────────────────────────
+
+interface GranularWealth {
+  pureEquityInvested: number;  pureEquityCurrent: number;
+  mfEquityInvested: number;    mfEquityCurrent: number;
+  goldInvested: number;        goldCurrent: number;       // combined Zerodha ETF + MF
+  eqGoldInvested: number;      eqGoldCurrent: number;     // Zerodha Equity Gold only
+  mfGoldInvested: number;      mfGoldCurrent: number;     // Zerodha MF Gold only
+  silverInvested: number;      silverCurrent: number;     // combined
+  eqSilverInvested: number;    eqSilverCurrent: number;
+  mfSilverInvested: number;    mfSilverCurrent: number;
+  foreignInvested: number;     foreignCurrent: number;    // Zerodha Foreign + IND Money
+  eqForeignInvested: number;   eqForeignCurrent: number;  // Zerodha Foreign ETF only
+  mfDebtInvested: number;      mfDebtCurrent: number;
+}
+
+function deriveGranular(w: WealthSnapshot): GranularWealth {
+  const eqEq  = w.eqEquityInvested  ?? 0;  const eqEqC = w.eqEquityCurrent   ?? 0;
+  const eqG   = w.eqGoldInvested    ?? 0;  const eqGC  = w.eqGoldCurrent     ?? 0;
+  const eqS   = w.eqSilverInvested  ?? 0;  const eqSC  = w.eqSilverCurrent   ?? 0;
+  const eqF   = w.eqForeignInvested ?? 0;  const eqFC  = w.eqForeignCurrent  ?? 0;
+  const mfEq  = w.mfEquityInvested  ?? 0;  const mfEqC = w.mfEquityCurrent   ?? 0;
+  const mfG   = w.mfGoldInvested    ?? 0;  const mfGC  = w.mfGoldCurrent     ?? 0;
+  const mfS   = w.mfSilverInvested  ?? 0;  const mfSC  = w.mfSilverCurrent   ?? 0;
+  const mfD   = w.mfDebtInvested    ?? 0;  const mfDC  = w.mfDebtCurrent     ?? 0;
+
+  return {
+    pureEquityInvested: eqEq,         pureEquityCurrent:  eqEqC,
+    mfEquityInvested:   mfEq,         mfEquityCurrent:    mfEqC,
+    goldInvested:       eqG + mfG,    goldCurrent:        eqGC + mfGC,
+    eqGoldInvested:     eqG,          eqGoldCurrent:      eqGC,
+    mfGoldInvested:     mfG,          mfGoldCurrent:      mfGC,
+    silverInvested:     eqS + mfS,    silverCurrent:      eqSC + mfSC,
+    eqSilverInvested:   eqS,          eqSilverCurrent:    eqSC,
+    mfSilverInvested:   mfS,          mfSilverCurrent:    mfSC,
+    foreignInvested:    eqF + w.indmoneyInvested,  foreignCurrent:   eqFC + w.indmoneyCurrent,
+    eqForeignInvested:  eqF,          eqForeignCurrent:   eqFC,
+    mfDebtInvested:     mfD,          mfDebtCurrent:      mfDC,
+  };
+}
+
 // ── Main export ────────────────────────────────────────────────────────────
 
 export async function exportToExcel(
@@ -301,8 +489,8 @@ export async function exportToExcel(
 ) {
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
-  wb.creator  = 'Finance Manager';
-  wb.created  = new Date();
+  wb.creator = 'Finance Manager';
+  wb.created = new Date();
 
   if (mode === 'transactions' || mode === 'both') {
     await buildTransactionsSheet(wb, transactions);
@@ -346,14 +534,13 @@ async function buildTransactionsSheet(wb: import('exceljs').Workbook, raw: Local
     { key: 'source',  width: 11 },
   ];
 
-  const txs = [...raw].sort((a, b) => b.date.localeCompare(a.date)).map(enrichTx);
+  const txs      = [...raw].sort((a, b) => b.date.localeCompare(a.date)).map(enrichTx);
   const expenses = txs.filter(t => t.type === 'expense');
   const incomes  = txs.filter(t => t.type === 'income');
   const totalExp = expenses.reduce((s, t) => s + t.amount, 0);
   const totalInc = incomes.reduce((s, t) => s + t.amount, 0);
   const net      = totalInc - totalExp;
 
-  // ── Row 1: Title
   ws.mergeCells('A1:G1');
   const title = ws.getCell('A1');
   title.value     = '  Transaction Ledger';
@@ -363,7 +550,6 @@ async function buildTransactionsSheet(wb: import('exceljs').Workbook, raw: Local
   title.border    = borderBottom(P.purple);
   ws.getRow(1).height = 40;
 
-  // ── Row 2: Stats strip
   ws.mergeCells('A2:B2');
   ws.mergeCells('C2:D2');
   ws.mergeCells('E2:F2');
@@ -386,7 +572,6 @@ async function buildTransactionsSheet(wb: import('exceljs').Workbook, raw: Local
   tc.fill      = fill(P.slateMid);
   tc.alignment = align('center', 'middle');
 
-  // ── Row 3: Sub-header for chart note
   ws.mergeCells('A3:G3');
   const cn = ws.getCell('A3');
   cn.value     = '  📊 See "Category Breakdown" and "Monthly Trend" sheets for charts';
@@ -395,7 +580,6 @@ async function buildTransactionsSheet(wb: import('exceljs').Workbook, raw: Local
   cn.alignment = align('left', 'middle');
   ws.getRow(3).height = 18;
 
-  // ── Row 4: Column headers
   const headers = ['Date', 'Type', 'Category', 'Sub-Category', 'Amount (₹)', 'Description', 'Source'];
   const hRow = ws.getRow(4);
   hRow.height = 24;
@@ -408,7 +592,6 @@ async function buildTransactionsSheet(wb: import('exceljs').Workbook, raw: Local
     c.border    = border(P.purple);
   });
 
-  // ── Data rows
   txs.forEach((t, idx) => {
     const row  = ws.getRow(idx + 5);
     row.height = 20;
@@ -417,13 +600,13 @@ async function buildTransactionsSheet(wb: import('exceljs').Workbook, raw: Local
     const cat  = CATEGORY_COLORS[t.mainCategory] ?? { text: P.slate, pale: P.slatePale, mid: P.slateMid };
 
     const cells: [string | number, string, string, EjAlign][] = [
-      [t.date.slice(0, 10),                                    P.gray600,                   bg,        align('left', 'middle')],
-      [t.type === 'income' ? '⬇ Income' : '⬆ Expense',       t.type === 'income' ? P.greenDk : P.redDk, t.type === 'income' ? P.greenPale : P.redPale, align('center', 'middle')],
-      [t.mainCategory,                                         cat.text,                    cat.pale,  align('left', 'middle')],
-      [t.subCategory,                                          P.gray600,                   bg,        align('left', 'middle')],
-      [t.amount,                                               t.type === 'income' ? P.greenDk : P.redDk, bg, align('right', 'middle')],
-      [t.comment || '—',                                       t.comment ? P.gray800 : P.gray400, bg,  align('left', 'middle')],
-      [t.source === 'manual' ? '✍ Manual' : '📁 Excel',       P.slateLight,                P.slatePale, align('center', 'middle')],
+      [t.date.slice(0, 10), P.gray600, bg, align('left', 'middle')],
+      [t.type === 'income' ? '⬇ Income' : '⬆ Expense', t.type === 'income' ? P.greenDk : P.redDk, t.type === 'income' ? P.greenPale : P.redPale, align('center', 'middle')],
+      [t.mainCategory, cat.text, cat.pale, align('left', 'middle')],
+      [t.subCategory,  P.gray600, bg, align('left', 'middle')],
+      [t.amount, t.type === 'income' ? P.greenDk : P.redDk, bg, align('right', 'middle')],
+      [t.comment || '—', t.comment ? P.gray800 : P.gray400, bg, align('left', 'middle')],
+      [t.source === 'manual' ? '✍ Manual' : '📁 Excel', P.slateLight, P.slatePale, align('center', 'middle')],
     ];
 
     cells.forEach(([val, clr, bg2, al], ci) => {
@@ -441,7 +624,7 @@ async function buildTransactionsSheet(wb: import('exceljs').Workbook, raw: Local
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// Sheet 2 — Category Breakdown + PIE CHART
+// Sheet 2 — Category Breakdown + PIE CHARTS
 // ══════════════════════════════════════════════════════════════════════════════
 
 async function buildCategorySheet(wb: import('exceljs').Workbook, raw: LocalTransaction[]) {
@@ -458,11 +641,10 @@ async function buildCategorySheet(wb: import('exceljs').Workbook, raw: LocalTran
     { key: 'pct',   width: 12 },
   ];
 
-  const txs     = raw.map(enrichTx);
+  const txs      = raw.map(enrichTx);
   const expenses = txs.filter(t => t.type === 'expense');
   const totalExp = expenses.reduce((s, t) => s + t.amount, 0);
 
-  // Title
   ws.mergeCells('A1:F1');
   const title = ws.getCell('A1');
   title.value     = '  Spending by Category';
@@ -472,7 +654,6 @@ async function buildCategorySheet(wb: import('exceljs').Workbook, raw: LocalTran
   title.border    = borderBottom(P.purple);
   ws.getRow(1).height = 40;
 
-  // Subtitle
   ws.mergeCells('A2:F2');
   const sub = ws.getCell('A2');
   sub.value     = `  Total expenses: ${inr(totalExp)}  ·  ${expenses.length} transactions`;
@@ -481,36 +662,47 @@ async function buildCategorySheet(wb: import('exceljs').Workbook, raw: LocalTran
   sub.alignment = align('left', 'middle');
   ws.getRow(2).height = 20;
 
-  // ── Generate pie charts before writing data ──
-  // Main category pie
   const mainAgg: Record<string, number> = {};
   for (const t of expenses) mainAgg[t.mainCategory] = (mainAgg[t.mainCategory] ?? 0) + t.amount;
   const mainLabels = Object.keys(mainAgg);
   const mainVals   = mainLabels.map(k => mainAgg[k]);
 
-  // Sub-category pie (top 8)
   const subAgg: Record<string, number> = {};
   for (const t of expenses) subAgg[t.subCategory] = (subAgg[t.subCategory] ?? 0) + t.amount;
   const subEntries = Object.entries(subAgg).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const topSubs    = Object.entries(subAgg).sort((a, b) => b[1] - a[1]).slice(0, 12);
+  const topColors  = topSubs.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]);
 
-  const [piePng1, piePng2] = await Promise.all([
-    makePieChart(mainLabels, mainVals, 'Spending by Main Category'),
-    makePieChart(subEntries.map(e => e[0]), subEntries.map(e => e[1]), 'Top Sub-Categories'),
+  const [piePng1, piePng2, topBarPng] = await Promise.all([
+    makePieChart(mainLabels, mainVals, 'Spending by Main Category', `Total: ${fmtShort(totalExp)}`),
+    makePieChart(subEntries.map(e => e[0]), subEntries.map(e => e[1]), 'Top Sub-Categories (by spend)', `${expenses.length} transactions`),
+    makeHorizontalBarChart(
+      topSubs.map(e => e[0]),
+      topSubs.map(e => e[1]),
+      topColors,
+      'Top 12 Spending Sub-Categories',
+      `Ranked by total spend`,
+    ),
   ]);
 
-  // Reserve rows 3..19 for charts (two side by side)
-  // Chart 1: cols A-C, rows 3-19
-  // Chart 2: cols D-F, rows 3-19
-  for (let r = 3; r <= 21; r++) ws.getRow(r).height = 14;
-  ws.getRow(3).height = 8; // small gap above charts
+  // Rows 3-24: two pie charts side by side
+  for (let r = 3; r <= 26; r++) ws.getRow(r).height = 15;
+  ws.getRow(3).height = 8;
 
   const imgId1 = wb.addImage({ base64: piePng1, extension: 'png' });
   const imgId2 = wb.addImage({ base64: piePng2, extension: 'png' });
-  ws.addImage(imgId1, { tl: { col: 0, row: 3 }, ext: { width: 340, height: 240 } } as Parameters<typeof ws.addImage>[1]);
-  ws.addImage(imgId2, { tl: { col: 3, row: 3 }, ext: { width: 340, height: 240 } } as Parameters<typeof ws.addImage>[1]);
+  const imgId3 = wb.addImage({ base64: topBarPng, extension: 'png' });
+  ws.addImage(imgId1, { tl: { col: 0, row: 2 }, ext: { width: 420, height: 300 } } as Parameters<typeof ws.addImage>[1]);
+  ws.addImage(imgId2, { tl: { col: 3, row: 2 }, ext: { width: 420, height: 300 } } as Parameters<typeof ws.addImage>[1]);
 
-  // Headers at row 22
-  const hRow = ws.getRow(22);
+  // Horizontal bar chart rows 27+
+  const barH = Math.max(340, topSubs.length * 44 + 120);
+  const barRows = Math.ceil(barH / 15) + 2;
+  for (let r = 27; r <= 27 + barRows; r++) ws.getRow(r).height = 15;
+  ws.addImage(imgId3, { tl: { col: 0, row: 26 }, ext: { width: 820, height: barH } } as Parameters<typeof ws.addImage>[1]);
+
+  const startRow = 27 + barRows + 2;
+  const hRow = ws.getRow(startRow);
   hRow.height = 24;
   ['Category', 'Sub-Category', 'Count', 'Total Spent', 'Avg / Txn', '% of Total'].forEach((h, i) => {
     const c = hRow.getCell(i + 1);
@@ -521,8 +713,7 @@ async function buildCategorySheet(wb: import('exceljs').Workbook, raw: LocalTran
     c.border    = border(P.purple);
   });
 
-  // Data
-  let rowIdx = 23;
+  let rowIdx = startRow + 1;
   const mainOrder = ['Need', 'Want', 'Investment'];
   const grouped: Record<string, Record<string, { count: number; total: number }>> = {};
   for (const t of expenses) {
@@ -537,9 +728,8 @@ async function buildCategorySheet(wb: import('exceljs').Workbook, raw: LocalTran
     const subs     = grouped[main];
     const cat      = CATEGORY_COLORS[main] ?? { text: P.slate, pale: P.slatePale, mid: P.slateMid };
     const mainTotal = Object.values(subs).reduce((s, v) => s + v.total, 0);
-    const mCount   = Object.values(subs).reduce((s, v) => s + v.count, 0);
+    const mCount    = Object.values(subs).reduce((s, v) => s + v.count, 0);
 
-    // Main row
     ws.mergeCells(`A${rowIdx}:B${rowIdx}`);
     const mr = ws.getRow(rowIdx);
     mr.height = 26;
@@ -561,21 +751,17 @@ async function buildCategorySheet(wb: import('exceljs').Workbook, raw: LocalTran
     });
     rowIdx++;
 
-    // Sub rows
-    Object.entries(subs).sort((a, b) => b[1].total - a[1].total).forEach(([sub, { count, total }]) => {
+    Object.entries(subs).sort((a, b) => b[1].total - a[1].total).forEach(([subCat, { count, total }]) => {
       const sr = ws.getRow(rowIdx++);
       sr.height = 20;
-
       const sc1 = sr.getCell(1);
       sc1.value = ''; sc1.fill = fill(P.white); sc1.border = borderBottom();
-
       const sc2 = sr.getCell(2);
-      sc2.value     = `    · ${sub}`;
+      sc2.value     = `    · ${subCat}`;
       sc2.font      = font(false, 10, P.gray600);
       sc2.fill      = fill(P.gray50);
       sc2.alignment = align('left', 'middle');
       sc2.border    = borderBottom();
-
       [count, total, total / count, (total / totalExp) * 100].forEach((val, ci) => {
         const c = sr.getCell(ci + 3);
         c.value     = val;
@@ -587,12 +773,11 @@ async function buildCategorySheet(wb: import('exceljs').Workbook, raw: LocalTran
       });
     });
 
-    // Spacer
     const sp = ws.getRow(rowIdx++);
     sp.height = 8;
   }
 
-  ws.autoFilter = { from: 'A22', to: 'F22' };
+  ws.autoFilter = { from: `A${startRow}`, to: `F${startRow}` };
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -601,15 +786,15 @@ async function buildCategorySheet(wb: import('exceljs').Workbook, raw: LocalTran
 
 async function buildMonthlySheet(wb: import('exceljs').Workbook, raw: LocalTransaction[]) {
   const ws = wb.addWorksheet('📅 Monthly Trend', {
-    views: [{ state: 'frozen', xSplit: 0, ySplit: 20 }],
+    views: [{ state: 'frozen', xSplit: 0, ySplit: 22 }],
   });
 
   ws.columns = [
-    { key: 'month',    width: 18 },
-    { key: 'income',   width: 16 },
-    { key: 'expense',  width: 16 },
-    { key: 'net',      width: 16 },
-    { key: 'savings',  width: 14 },
+    { key: 'month',   width: 18 },
+    { key: 'income',  width: 16 },
+    { key: 'expense', width: 16 },
+    { key: 'net',     width: 16 },
+    { key: 'savings', width: 14 },
   ];
 
   const byMonth: Record<string, { income: number; expense: number }> = {};
@@ -621,7 +806,6 @@ async function buildMonthlySheet(wb: import('exceljs').Workbook, raw: LocalTrans
   }
   const months = Object.keys(byMonth).sort();
 
-  // Title
   ws.mergeCells('A1:E1');
   const title = ws.getCell('A1');
   title.value     = '  Monthly Income vs Expense Trend';
@@ -631,38 +815,37 @@ async function buildMonthlySheet(wb: import('exceljs').Workbook, raw: LocalTrans
   title.border    = borderBottom(P.purple);
   ws.getRow(1).height = 40;
 
-  // ── Generate bar chart
   const moLabels = months.map(mo => {
     const [y, m] = mo.split('-');
     return new Date(parseInt(y), parseInt(m) - 1).toLocaleString('en-IN', { month: 'short', year: '2-digit' });
   });
+
+  const avgInc = months.reduce((s, m) => s + byMonth[m].income,  0) / (months.length || 1);
+  const avgExp = months.reduce((s, m) => s + byMonth[m].expense, 0) / (months.length || 1);
+
   const barPng = await makeBarChart(
     moLabels,
     [
-      { label: 'Income',  data: months.map(m => byMonth[m].income),  color: '#15803D' },
-      { label: 'Expense', data: months.map(m => byMonth[m].expense), color: '#E53935' },
-      { label: 'Net',     data: months.map(m => byMonth[m].income - byMonth[m].expense), color: '#6C63FF' },
+      { label: 'Income',  data: months.map(m => byMonth[m].income),  color: C.income },
+      { label: 'Expense', data: months.map(m => byMonth[m].expense), color: C.expense },
+      { label: 'Net',     data: months.map(m => byMonth[m].income - byMonth[m].expense), color: C.net },
     ],
     'Monthly Income vs Expense',
+    `${months.length} months  ·  Avg Income ${fmtShort(avgInc)}  ·  Avg Expense ${fmtShort(avgExp)}`,
   );
 
-  // Reserve rows 2-18 for chart
-  for (let r = 2; r <= 18; r++) ws.getRow(r).height = 15;
+  for (let r = 2; r <= 21; r++) ws.getRow(r).height = 15;
   ws.addImage(wb.addImage({ base64: barPng, extension: 'png' }), {
-    tl: { col: 0, row: 1 }, ext: { width: 600, height: 280 },
+    tl: { col: 0, row: 1 }, ext: { width: 820, height: 340 },
   } as Parameters<typeof ws.addImage>[1]);
 
-  // Stats strip row 19
-  ws.mergeCells('A19:B19');
-  ws.mergeCells('C19:D19');
-  ws.getRow(19).height = 26;
-
-  const avgInc = months.reduce((s, m) => s + byMonth[m].income, 0) / (months.length || 1);
-  const avgExp = months.reduce((s, m) => s + byMonth[m].expense, 0) / (months.length || 1);
-
-  [['A19', '📅 Months', String(months.length), P.purpleDk, P.purplePale, P.purpleMid],
-   ['C19', '⬇ Avg Income', inr(avgInc), P.greenDk, P.greenPale, P.greenMid],
-   ['E19', '⬆ Avg Expense', inr(avgExp), P.redDk, P.redPale, P.redMid]].forEach(([addr, lbl, val, tc, pale, mid]) => {
+  // Stats strip row 21
+  ws.mergeCells('A21:B21');
+  ws.mergeCells('C21:D21');
+  ws.getRow(21).height = 26;
+  [['A21', '📅 Months', String(months.length), P.purpleDk, P.purplePale, P.purpleMid],
+   ['C21', '⬇ Avg Income',  inr(avgInc), P.greenDk, P.greenPale, P.greenMid],
+   ['E21', '⬆ Avg Expense', inr(avgExp), P.redDk, P.redPale, P.redMid]].forEach(([addr, lbl, val, tc, pale, mid]) => {
     const c = ws.getCell(addr as string);
     c.value     = `${lbl}  ${val}`;
     c.font      = font(true, 10, tc as string);
@@ -671,8 +854,7 @@ async function buildMonthlySheet(wb: import('exceljs').Workbook, raw: LocalTrans
     c.border    = borderBottom(mid as string);
   });
 
-  // Headers row 20
-  const hRow = ws.getRow(20);
+  const hRow = ws.getRow(22);
   hRow.height = 24;
   ['Month', 'Income', 'Expense', 'Net Savings', 'Savings %'].forEach((h, i) => {
     const c = hRow.getCell(i + 1);
@@ -683,26 +865,24 @@ async function buildMonthlySheet(wb: import('exceljs').Workbook, raw: LocalTrans
     c.border    = border(P.purple);
   });
 
-  // Data rows
-  months.forEach(({ }, idx) => {
+  months.forEach((_, idx) => {
     const mo   = months[idx];
     const { income, expense } = byMonth[mo];
     const net  = income - expense;
     const pct  = income > 0 ? net / income : 0;
-    const row  = ws.getRow(idx + 21);
+    const row  = ws.getRow(idx + 23);
     row.height = 22;
     const even = idx % 2 === 0;
     const bg   = even ? P.gray50 : P.white;
-
     const [y, m] = mo.split('-');
     const moLabel = new Date(parseInt(y), parseInt(m) - 1).toLocaleString('en-IN', { month: 'long', year: 'numeric' });
 
     const vals: [string | number, string, string, string][] = [
-      [moLabel,  P.gray800,                             bg,            ''],
-      [income,   P.greenDk,                             P.greenPale,   '₹#,##0'],
-      [expense,  P.redDk,                               P.redPale,     '₹#,##0'],
-      [net,      net >= 0 ? P.greenDk : P.redDk,        net >= 0 ? P.greenPale : P.redPale, '₹#,##0'],
-      [pct,      pct >= 0.2 ? P.greenDk : pct >= 0 ? P.amber : P.redDk, bg, '0.0%'],
+      [moLabel, P.gray800, bg, ''],
+      [income,  P.greenDk, P.greenPale, '₹#,##0'],
+      [expense, P.redDk,   P.redPale,   '₹#,##0'],
+      [net,  net >= 0 ? P.greenDk : P.redDk, net >= 0 ? P.greenPale : P.redPale, '₹#,##0'],
+      [pct,  pct >= 0.2 ? P.greenDk : pct >= 0 ? P.amber : P.redDk, bg, '0.0%'],
     ];
 
     vals.forEach(([val, clr, bg2, fmt], ci) => {
@@ -716,12 +896,11 @@ async function buildMonthlySheet(wb: import('exceljs').Workbook, raw: LocalTrans
     });
   });
 
-  // Totals
   if (months.length > 0) {
     const totInc = months.reduce((s, m) => s + byMonth[m].income, 0);
     const totExp = months.reduce((s, m) => s + byMonth[m].expense, 0);
     const totNet = totInc - totExp;
-    const tRow   = ws.getRow(months.length + 21);
+    const tRow   = ws.getRow(months.length + 23);
     tRow.height  = 26;
     [['TOTAL', '', P.purpleDk], [totInc, '₹#,##0', P.greenDk], [totExp, '₹#,##0', P.redDk],
      [totNet, '₹#,##0', totNet >= 0 ? P.greenDk : P.redDk], [totNet / totInc, '0.0%', P.purpleDk]].forEach(([v, fmt, clr], i) => {
@@ -738,6 +917,9 @@ async function buildMonthlySheet(wb: import('exceljs').Workbook, raw: LocalTrans
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Sheet 4 — Wealth Overview
+// Sections: Zerodha (Equity, Gold ETF, Silver ETF, Foreign ETF, MF-Equity, MF-Gold, MF-Silver, MF-Debt)
+//           Foreign Stocks (Zerodha Foreign ETF + IND Money)
+//           Crypto, Debt, PF, Bank
 // ══════════════════════════════════════════════════════════════════════════════
 
 async function buildWealthSheet(wb: import('exceljs').Workbook, w: WealthSnapshot) {
@@ -746,14 +928,15 @@ async function buildWealthSheet(wb: import('exceljs').Workbook, w: WealthSnapsho
   });
 
   ws.columns = [
-    { key: 'label',    width: 28 },
+    { key: 'label',    width: 34 },
     { key: 'invested', width: 18 },
     { key: 'current',  width: 18 },
     { key: 'pnl',      width: 18 },
     { key: 'pct',      width: 14 },
   ];
 
-  // Title
+  const g = deriveGranular(w);
+
   ws.mergeCells('A1:E1');
   const title = ws.getCell('A1');
   title.value     = '  Wealth & Net Worth Snapshot';
@@ -763,14 +946,12 @@ async function buildWealthSheet(wb: import('exceljs').Workbook, w: WealthSnapsho
   title.border    = borderBottom(P.purple);
   ws.getRow(1).height = 40;
 
-  // Net Worth row
   ws.mergeCells('A2:B2');
   ws.mergeCells('C2:D2');
   ws.getRow(2).height = 30;
-
   [['A2', `🏦 Assets  ${fmtShort(w.totalAssets)}`,      P.greenDk, P.greenMid],
-   ['C2', `💳 Liab  ${fmtShort(w.totalLiabilities)}`,  P.redDk,   P.redMid],
-   ['E2', `✦ Net Worth  ${fmtShort(w.netWorth)}`,       w.netWorth >= 0 ? P.purpleDk : P.redDk, w.netWorth >= 0 ? P.purpleMid : P.redMid]].forEach(([addr, val, tc, pale]) => {
+   ['C2', `💳 Liab  ${fmtShort(w.totalLiabilities)}`,   P.redDk,   P.redMid],
+   ['E2', `✦ Net Worth  ${fmtShort(w.netWorth)}`,        w.netWorth >= 0 ? P.purpleDk : P.redDk, w.netWorth >= 0 ? P.purpleMid : P.redMid]].forEach(([addr, val, tc, pale]) => {
     const c = ws.getCell(addr as string);
     c.value     = val;
     c.font      = font(true, 13, tc as string);
@@ -779,7 +960,6 @@ async function buildWealthSheet(wb: import('exceljs').Workbook, w: WealthSnapsho
     c.border    = border(tc + '60' as string);
   });
 
-  // Column headers row 3
   const hRow = ws.getRow(3);
   hRow.height = 22;
   ['Asset', 'Invested', 'Current Value', 'P&L', '% Return'].forEach((h, i) => {
@@ -791,53 +971,118 @@ async function buildWealthSheet(wb: import('exceljs').Workbook, w: WealthSnapsho
     c.border    = border(P.purple);
   });
 
-  const assetDefs = [
-    { label: 'Stocks (Kite)',  inv: w.eqTotalInvested,  cur: w.eqTotalCurrent,  color: P.purple,  pale: P.purplePale },
-    { label: 'Mutual Funds',  inv: w.mfTotalInvested,  cur: w.mfTotalCurrent,  color: P.teal,    pale: P.tealPale   },
-    { label: 'US Stocks',     inv: w.indmoneyInvested, cur: w.indmoneyCurrent, color: P.amber,   pale: P.amberPale  },
-    { label: 'Crypto',        inv: w.cryptoInvested,   cur: w.cryptoCurrent,   color: P.orange,  pale: P.orangePale },
-    { label: 'Debt',          inv: w.debtInvested,     cur: w.debtCurrent,     color: P.violet,  pale: P.violetPale },
-    { label: 'PF',            inv: w.pfInvested,       cur: w.pfCurrent,       color: P.green,   pale: P.greenPale  },
-    { label: 'Bank & Cash',   inv: w.bankTotal,        cur: w.bankTotal,       color: P.slate,   pale: P.slatePale  },
-  ];
+  // Asset rows definition
+  type AssetRow = { label: string; inv: number; cur: number; color: string; pale: string; indent?: boolean; sectionHeader?: boolean };
+  const assetDefs: AssetRow[] = [];
+
+  const zTotal = { inv: w.eqTotalInvested + w.mfTotalInvested, cur: w.eqTotalCurrent + w.mfTotalCurrent };
+  assetDefs.push({ label: '📈  ZERODHA (Kite + Coin)', inv: zTotal.inv, cur: zTotal.cur, color: P.purple, pale: P.purpleMid, sectionHeader: true });
+
+  // Equity sub-section
+  if (g.pureEquityInvested > 0 || g.pureEquityCurrent > 0)
+    assetDefs.push({ label: '   · Stocks (Pure Equity)', inv: g.pureEquityInvested, cur: g.pureEquityCurrent, color: P.purple, pale: P.purplePale, indent: true });
+  if (g.mfEquityInvested > 0 || g.mfEquityCurrent > 0)
+    assetDefs.push({ label: '   · MF — Equity Funds', inv: g.mfEquityInvested, cur: g.mfEquityCurrent, color: P.teal, pale: P.tealPale, indent: true });
+
+  // Gold — separate rows for ETF + MF
+  const goldRow: AssetRow = { label: '   · Gold (ETF + MF combined)', inv: g.goldInvested, cur: g.goldCurrent, color: P.amber, pale: P.amberPale, indent: true };
+  if (g.goldInvested > 0 || g.goldCurrent > 0) {
+    assetDefs.push(goldRow);
+    if (g.eqGoldInvested > 0 || g.eqGoldCurrent > 0)
+      assetDefs.push({ label: '      ↳ Gold ETF (Equity / Kite)', inv: g.eqGoldInvested, cur: g.eqGoldCurrent, color: P.amber, pale: P.goldPale, indent: true });
+    if (g.mfGoldInvested > 0 || g.mfGoldCurrent > 0)
+      assetDefs.push({ label: '      ↳ Gold MF (Coin)', inv: g.mfGoldInvested, cur: g.mfGoldCurrent, color: P.amber, pale: P.goldPale, indent: true });
+  }
+
+  // Silver — separate rows for ETF + MF
+  if (g.silverInvested > 0 || g.silverCurrent > 0) {
+    assetDefs.push({ label: '   · Silver (ETF + MF combined)', inv: g.silverInvested, cur: g.silverCurrent, color: P.silver, pale: P.silverPale, indent: true });
+    if (g.eqSilverInvested > 0 || g.eqSilverCurrent > 0)
+      assetDefs.push({ label: '      ↳ Silver ETF (Equity / Kite)', inv: g.eqSilverInvested, cur: g.eqSilverCurrent, color: P.silver, pale: P.silverMid, indent: true });
+    if (g.mfSilverInvested > 0 || g.mfSilverCurrent > 0)
+      assetDefs.push({ label: '      ↳ Silver MF (Coin)', inv: g.mfSilverInvested, cur: g.mfSilverCurrent, color: P.silver, pale: P.silverMid, indent: true });
+  }
+
+  if (g.mfDebtInvested > 0 || g.mfDebtCurrent > 0)
+    assetDefs.push({ label: '   · MF — Debt Funds (Coin)', inv: g.mfDebtInvested, cur: g.mfDebtCurrent, color: P.violet, pale: P.violetPale, indent: true });
+
+  // Foreign Stocks section — Zerodha ETF + IND Money
+  assetDefs.push({ label: '🌐  FOREIGN STOCKS (Combined)', inv: g.foreignInvested, cur: g.foreignCurrent, color: P.teal, pale: P.tealMid, sectionHeader: true });
+  assetDefs.push({ label: '   · Zerodha Foreign ETF (Kite)', inv: g.eqForeignInvested, cur: g.eqForeignCurrent, color: P.teal, pale: P.tealPale, indent: true });
+  assetDefs.push({ label: '   · IND Money (US Stocks)', inv: w.indmoneyInvested, cur: w.indmoneyCurrent, color: P.teal, pale: P.tealPale, indent: true });
+
+  // Crypto
+  if (w.cryptoInvested > 0 || w.cryptoCurrent > 0)
+    assetDefs.push({ label: '₿  Crypto (CoinDCX)', inv: w.cryptoInvested, cur: w.cryptoCurrent, color: P.orange, pale: P.orangePale });
+
+  // Debt
+  assetDefs.push({ label: '🏛  DEBT INSTRUMENTS', inv: w.debtInvested, cur: w.debtCurrent, color: P.violet, pale: P.violetMid, sectionHeader: true });
+  if (w.bondInvested ?? 0 > 0)
+    assetDefs.push({ label: '   · Bonds (Stable Money)', inv: w.bondInvested ?? 0, cur: w.bondCurrent ?? 0, color: P.violet, pale: P.violetPale, indent: true });
+  if (w.fdInvested ?? 0 > 0)
+    assetDefs.push({ label: '   · Fixed Deposit', inv: w.fdInvested ?? 0, cur: w.fdCurrent ?? 0, color: P.violet, pale: P.violetPale, indent: true });
+
+  // PF & Bank
+  if (w.pfInvested > 0 || w.pfCurrent > 0)
+    assetDefs.push({ label: '🔒  Provident Fund (PF / EPFO)', inv: w.pfInvested, cur: w.pfCurrent, color: P.green, pale: P.greenPale });
+  if (w.bankTotal > 0)
+    assetDefs.push({ label: '🏦  Bank & Cash (SBI + Wallet)', inv: w.bankTotal, cur: w.bankTotal, color: P.slate, pale: P.slatePale });
 
   let r = 4;
   for (const a of assetDefs) {
-    if (a.cur === 0 && a.inv === 0) continue;
     const row  = ws.getRow(r++);
-    row.height = 22;
+    row.height = a.sectionHeader ? 26 : 20;
     const pnl  = a.cur - a.inv;
     const pct  = pnlPct(a.inv, a.cur);
+    const isZero = a.cur === 0 && a.inv === 0;
 
     const lc = row.getCell(1);
     lc.value     = a.label;
-    lc.font      = font(true, 11, a.color);
-    lc.fill      = fill(a.pale);
+    lc.font      = font(a.sectionHeader ?? false, a.sectionHeader ? 12 : 10, a.sectionHeader ? a.color : (a.indent ? P.gray600 : P.gray800));
+    lc.fill      = fill(a.sectionHeader ? a.pale : (r % 2 === 0 ? P.gray50 : P.white));
     lc.alignment = align('left', 'middle');
-    lc.border    = borderBottom(a.color + '60');
+    lc.border    = a.sectionHeader ? border(a.color + '60') : borderBottom(P.gray200);
 
-    [[a.inv, P.gray600, a.pale, '₹#,##0'], [a.cur, a.color, a.pale, '₹#,##0'],
+    if (isZero && !a.sectionHeader) {
+      ws.mergeCells(`B${r - 1}:E${r - 1}`);
+      const nc = row.getCell(2);
+      nc.value = '—'; nc.font = font(false, 10, P.gray400);
+      nc.fill = fill(P.gray50); nc.alignment = align('center', 'middle');
+      continue;
+    }
+    if (isZero && a.sectionHeader) {
+      ws.mergeCells(`B${r - 1}:E${r - 1}`);
+      const nc = row.getCell(2);
+      nc.value = '—'; nc.font = font(false, 10, P.gray400);
+      nc.fill = fill(a.pale); nc.alignment = align('center', 'middle');
+      continue;
+    }
+
+    [[a.inv, P.gray600, a.sectionHeader ? a.pale : P.gray50, '₹#,##0'],
+     [a.cur, a.color, a.pale, '₹#,##0'],
      [pnl, pnl >= 0 ? P.greenDk : P.redDk, pnl >= 0 ? P.greenPale : P.redPale, '₹#,##0'],
-     [pct / 100, pct >= 0 ? P.greenDk : P.redDk, a.pale, '+0.00%;-0.00%']].forEach(([val, clr, bg, fmt], ci) => {
+     [pct / 100, pct >= 0 ? P.greenDk : P.redDk, a.sectionHeader ? a.pale : P.gray50, '+0.00%;-0.00%']].forEach(([val, clr, bg, fmt], ci) => {
       const c = row.getCell(ci + 2);
       c.value     = val as number;
       c.numFmt    = fmt as string;
-      c.font      = font(ci === 1 || ci === 2 || ci === 3, 11, clr as string);
+      c.font      = font(a.sectionHeader || ci === 1 || ci === 2 || ci === 3, a.sectionHeader ? 11 : 10, clr as string);
       c.fill      = fill(bg as string);
       c.alignment = align('center', 'middle');
-      c.border    = borderBottom();
+      c.border    = a.sectionHeader ? border(a.color + '60') : borderBottom(P.gray200);
     });
   }
 
   // Grand total
-  const totInv = assetDefs.reduce((s, a) => s + a.inv, 0);
-  const totCur = assetDefs.reduce((s, a) => s + a.cur, 0);
+  const totInv = w.eqTotalInvested + w.mfTotalInvested + g.foreignInvested + w.cryptoInvested + w.debtInvested + w.pfInvested;
+  const totCur = w.eqTotalCurrent  + w.mfTotalCurrent  + g.foreignCurrent  + w.cryptoCurrent  + w.debtCurrent  + w.pfCurrent;
   const totPnl = totCur - totInv;
   const totPct = pnlPct(totInv, totCur);
   const totRow = ws.getRow(r++);
-  totRow.height = 26;
-  [['TOTAL', P.purpleDk, P.purpleMid, ''], [totInv, P.gray600, P.purplePale, '₹#,##0'],
-   [totCur, P.purpleDk, P.purplePale, '₹#,##0'], [totPnl, totPnl >= 0 ? P.greenDk : P.redDk, totPnl >= 0 ? P.greenPale : P.redPale, '₹#,##0'],
+  totRow.height = 30;
+  [['TOTAL INVESTED (excl. Bank)', P.purpleDk, P.purpleMid, ''],
+   [totInv, P.gray600, P.purplePale, '₹#,##0'],
+   [totCur, P.purpleDk, P.purplePale, '₹#,##0'],
+   [totPnl, totPnl >= 0 ? P.greenDk : P.redDk, totPnl >= 0 ? P.greenPale : P.redPale, '₹#,##0'],
    [totPct / 100, totPct >= 0 ? P.greenDk : P.redDk, P.purplePale, '+0.00%;-0.00%']].forEach(([v, clr, bg, fmt], i) => {
     const c = totRow.getCell(i + 1);
     c.value     = v as string | number;
@@ -875,30 +1120,35 @@ async function buildWealthSheet(wb: import('exceljs').Workbook, w: WealthSnapsho
 
 async function buildAllocationSheet(wb: import('exceljs').Workbook, w: WealthSnapshot) {
   const ws = wb.addWorksheet('🎯 Asset Allocation', {
-    views: [{ state: 'frozen', xSplit: 0, ySplit: 21 }],
+    views: [{ state: 'frozen', xSplit: 0, ySplit: 26 }],
   });
 
   ws.columns = [
-    { key: 'asset',    width: 22 },
+    { key: 'asset',    width: 26 },
     { key: 'value',    width: 18 },
     { key: 'pct',      width: 14 },
     { key: 'invested', width: 18 },
     { key: 'pnl',      width: 18 },
   ];
 
+  const g = deriveGranular(w);
+
+  // Granular slices — Gold, Silver, Foreign all separate
   const slices = [
-    { name: 'Stocks (Kite)', cur: w.eqTotalCurrent,  inv: w.eqTotalInvested,  color: CHART_COLORS[0], pale: CHART_PALE[0] },
-    { name: 'Mutual Funds',  cur: w.mfTotalCurrent,  inv: w.mfTotalInvested,  color: CHART_COLORS[1], pale: CHART_PALE[1] },
-    { name: 'US Stocks',     cur: w.indmoneyCurrent, inv: w.indmoneyInvested, color: CHART_COLORS[2], pale: CHART_PALE[2] },
-    { name: 'Crypto',        cur: w.cryptoCurrent,   inv: w.cryptoInvested,   color: CHART_COLORS[3], pale: CHART_PALE[3] },
-    { name: 'Debt',          cur: w.debtCurrent,     inv: w.debtInvested,     color: CHART_COLORS[4], pale: CHART_PALE[4] },
-    { name: 'PF',            cur: w.pfCurrent,       inv: w.pfInvested,       color: CHART_COLORS[5], pale: CHART_PALE[5] },
-    { name: 'Bank & Cash',   cur: w.bankTotal,       inv: w.bankTotal,        color: CHART_COLORS[6], pale: CHART_PALE[6] },
-  ].filter(s => s.cur > 0);
+    { name: 'Equity Stocks',   cur: g.pureEquityCurrent,  inv: g.pureEquityInvested,  color: CHART_COLORS[0], pale: CHART_PALE[0] },
+    { name: 'MF Equity Funds', cur: g.mfEquityCurrent,    inv: g.mfEquityInvested,    color: CHART_COLORS[1], pale: CHART_PALE[1] },
+    { name: 'Gold',            cur: g.goldCurrent,         inv: g.goldInvested,         color: CHART_COLORS[2], pale: CHART_PALE[2] },
+    { name: 'Silver',          cur: g.silverCurrent,       inv: g.silverInvested,       color: CHART_COLORS[3], pale: CHART_PALE[3] },
+    { name: 'Foreign Stocks',  cur: g.foreignCurrent,      inv: g.foreignInvested,      color: CHART_COLORS[4], pale: CHART_PALE[4] },
+    { name: 'Crypto',          cur: w.cryptoCurrent,       inv: w.cryptoInvested,       color: CHART_COLORS[5], pale: CHART_PALE[5] },
+    { name: 'Debt',            cur: w.debtCurrent + (w.mfDebtCurrent ?? 0),   inv: w.debtInvested + (w.mfDebtInvested ?? 0),   color: CHART_COLORS[6], pale: CHART_PALE[6] },
+    { name: 'PF',              cur: w.pfCurrent,           inv: w.pfInvested,           color: CHART_COLORS[7], pale: CHART_PALE[7] },
+    { name: 'Bank & Cash',     cur: w.bankTotal,           inv: w.bankTotal,            color: CHART_COLORS[8], pale: CHART_PALE[8] },
+  ].filter(s => s.cur > 0 || s.inv > 0);
 
-  const totalCur = slices.reduce((s, x) => s + x.cur, 0);
+  const totalCur  = slices.reduce((s, x) => s + x.cur, 0);
+  const totalInvA = slices.reduce((s, x) => s + x.inv, 0);
 
-  // Title
   ws.mergeCells('A1:E1');
   const title = ws.getCell('A1');
   title.value     = '  Asset Allocation & Portfolio Mix';
@@ -908,33 +1158,63 @@ async function buildAllocationSheet(wb: import('exceljs').Workbook, w: WealthSna
   title.border    = borderBottom(P.purple);
   ws.getRow(1).height = 40;
 
-  // ── Generate charts
-  const [piePng, barPng] = await Promise.all([
-    makePieChart(slices.map(s => s.name), slices.map(s => s.cur), 'Portfolio Allocation'),
+  const activeSlices = slices.filter(s => s.inv > 0);
+  const visibleSlices = slices.filter(s => s.inv > 0 || s.cur > 0);
+
+  const [piePng, barPng, stackedPng] = await Promise.all([
+    makePieChart(
+      activeSlices.map(s => s.name),
+      activeSlices.map(s => s.inv),
+      'Asset Allocation (by Invested Amount)',
+      `Total Invested: ${fmtShort(totalInvA)}`,
+    ),
     makeBarChart(
-      slices.map(s => s.name),
+      visibleSlices.map(s => s.name),
       [
-        { label: 'Invested', data: slices.map(s => s.inv), color: '#6C63FF' },
-        { label: 'Current',  data: slices.map(s => s.cur), color: '#00C9A7' },
+        { label: 'Invested', data: visibleSlices.map(s => s.inv), color: C.equity },
+        { label: 'Current',  data: visibleSlices.map(s => s.cur), color: C.mfEq },
       ],
-      'Invested vs Current Value (P&L)',
+      'Invested vs Current Value by Asset',
+      `Overall P&L: ${fmtShort(totalCur - totalInvA)} (${pnlPct(totalInvA, totalCur).toFixed(1)}%)`,
+    ),
+    makeStackedBarChart(
+      ['Portfolio'],
+      activeSlices.map(s => ({ label: s.name, data: [s.inv], color: s.color })),
+      'Portfolio Composition (Stacked)',
     ),
   ]);
 
-  // Reserve rows 2-10 for pie, cols A-C
-  // Reserve rows 2-10 for bar, cols D-E+
-  for (let r = 2; r <= 19; r++) ws.getRow(r).height = 14;
-
+  // Rows 2-22: pie (left) + bar (right) side by side
+  for (let r = 2; r <= 24; r++) ws.getRow(r).height = 14;
   ws.addImage(wb.addImage({ base64: piePng, extension: 'png' }), {
-    tl: { col: 0, row: 1 }, ext: { width: 360, height: 260 },
+    tl: { col: 0, row: 1 }, ext: { width: 430, height: 320 },
   } as Parameters<typeof ws.addImage>[1]);
-
   ws.addImage(wb.addImage({ base64: barPng, extension: 'png' }), {
-    tl: { col: 3, row: 1 }, ext: { width: 360, height: 260 },
+    tl: { col: 3, row: 1 }, ext: { width: 430, height: 320 },
   } as Parameters<typeof ws.addImage>[1]);
 
-  // Headers at row 20
-  const hRow = ws.getRow(20);
+  // Stacked bar chart — rows 25-42
+  for (let r = 25; r <= 42; r++) ws.getRow(r).height = 14;
+  ws.addImage(wb.addImage({ base64: stackedPng, extension: 'png' }), {
+    tl: { col: 0, row: 24 }, ext: { width: 820, height: 240 },
+  } as Parameters<typeof ws.addImage>[1]);
+
+  // Stats strip row 25+18=43 → let's use a fixed row after stacked chart
+  ws.getRow(43).height = 26;
+  ws.mergeCells('A43:B43');
+  ws.mergeCells('C43:D43');
+  [['A43', `📊 Total Invested: ${fmtShort(totalInvA)}`, P.purpleDk, P.purplePale],
+   ['C43', `💰 Current Value: ${fmtShort(totalCur)}`, P.greenDk, P.greenPale],
+   ['E43', `P&L: ${fmtShort(totalCur - totalInvA)} (${pnlPct(totalInvA, totalCur).toFixed(1)}%)`, totalCur >= totalInvA ? P.greenDk : P.redDk, totalCur >= totalInvA ? P.greenMid : P.redMid]].forEach(([addr, val, tc, pale]) => {
+    const c = ws.getCell(addr as string);
+    c.value     = val;
+    c.font      = font(true, 11, tc as string);
+    c.fill      = fill(pale as string);
+    c.alignment = align('center', 'middle');
+    c.border    = border(tc + '40' as string);
+  });
+
+  const hRow = ws.getRow(44);
   hRow.height = 24;
   ['Asset Class', 'Current Value', 'Allocation %', 'Invested', 'P&L'].forEach((h, i) => {
     const c = hRow.getCell(i + 1);
@@ -945,17 +1225,18 @@ async function buildAllocationSheet(wb: import('exceljs').Workbook, w: WealthSna
     c.border    = border(P.purple);
   });
 
-  slices.sort((a, b) => b.cur - a.cur).forEach((s, idx) => {
-    const pct = (s.cur / totalCur) * 100;
+  slices.sort((a, b) => b.inv - a.inv).forEach((s, idx) => {
+    const pct = totalInvA > 0 ? (s.inv / totalInvA) * 100 : 0;
     const pnl = s.cur - s.inv;
-    const row = ws.getRow(idx + 21);
+    const row = ws.getRow(idx + 45);
     row.height = 24;
-
     const colorHex = s.color.replace('#', 'FF');
     const palHex   = s.pale.replace('#', 'FF');
 
-    [[s.name, colorHex, palHex, ''], [s.cur, colorHex, palHex, '₹#,##0'],
-     [pct / 100, colorHex, palHex, '0.0%'], [s.inv, P.gray600, P.gray50, '₹#,##0'],
+    [[s.name, colorHex, palHex, ''],
+     [s.cur,  colorHex, palHex, '₹#,##0'],
+     [pct / 100, colorHex, palHex, '0.0%'],
+     [s.inv, P.gray600, P.gray50, '₹#,##0'],
      [pnl, pnl >= 0 ? P.greenDk : P.redDk, pnl >= 0 ? P.greenPale : P.redPale, '+₹#,##0;-₹#,##0']].forEach(([v, clr, bg, fmt], i) => {
       const c = row.getCell(i + 1);
       c.value     = v as string | number;
@@ -967,13 +1248,13 @@ async function buildAllocationSheet(wb: import('exceljs').Workbook, w: WealthSna
     });
   });
 
-  // Total
   const totPnl = slices.reduce((s, x) => s + (x.cur - x.inv), 0);
-  const totInv = slices.reduce((s, x) => s + x.inv, 0);
-  const tRow   = ws.getRow(slices.length + 21);
-  tRow.height  = 26;
-  [['TOTAL', P.purpleDk, P.purpleMid, ''], [totalCur, P.purpleDk, P.purplePale, '₹#,##0'],
-   [1, P.purpleDk, P.purplePale, '0.0%'], [totInv, P.gray600, P.purplePale, '₹#,##0'],
+  const tRow   = ws.getRow(slices.length + 45);
+  tRow.height  = 28;
+  [['TOTAL', P.purpleDk, P.purpleMid, ''],
+   [totalCur, P.purpleDk, P.purplePale, '₹#,##0'],
+   [1, P.purpleDk, P.purplePale, '0.0%'],
+   [totalInvA, P.gray600, P.purplePale, '₹#,##0'],
    [totPnl, totPnl >= 0 ? P.greenDk : P.redDk, totPnl >= 0 ? P.greenPale : P.redPale, '+₹#,##0;-₹#,##0']].forEach(([v, clr, bg, fmt], i) => {
     const c = tRow.getCell(i + 1);
     c.value     = v as string | number;
@@ -999,14 +1280,14 @@ async function buildSummarySheet(wb: import('exceljs').Workbook, raw: LocalTrans
     { key: 'd', width: 14 },
   ];
 
-  const txs     = raw.map(enrichTx);
+  const txs      = raw.map(enrichTx);
   const expenses = txs.filter(t => t.type === 'expense');
   const incomes  = txs.filter(t => t.type === 'income');
   const totalExp = expenses.reduce((s, t) => s + t.amount, 0);
   const totalInc = incomes.reduce((s, t) => s + t.amount, 0);
   const net      = totalInc - totalExp;
+  const g        = deriveGranular(w);
 
-  // Title
   ws.mergeCells('A1:D1');
   const title = ws.getCell('A1');
   title.value     = `  Personal Finance Dashboard  ·  ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`;
@@ -1016,35 +1297,36 @@ async function buildSummarySheet(wb: import('exceljs').Workbook, raw: LocalTrans
   title.border    = borderBottom(P.purple);
   ws.getRow(1).height = 40;
 
-  // ── Generate summary charts
-  // Pie: category breakdown
   const catAgg: Record<string, number> = {};
   for (const t of expenses) catAgg[t.mainCategory] = (catAgg[t.mainCategory] ?? 0) + t.amount;
-  const catLabels = Object.keys(catAgg);
-  const catVals   = catLabels.map(k => catAgg[k]);
 
-  // Pie: wealth allocation
+  // Wealth allocation — granular Gold, Silver, Foreign separated
   const wealthSlices = [
-    { name: 'Stocks', val: w.eqTotalCurrent },
-    { name: 'MF',     val: w.mfTotalCurrent },
-    { name: 'US',     val: w.indmoneyCurrent },
-    { name: 'Crypto', val: w.cryptoCurrent },
-    { name: 'Debt',   val: w.debtCurrent },
-    { name: 'PF',     val: w.pfCurrent },
-    { name: 'Bank',   val: w.bankTotal },
+    { name: 'Equity Stocks',   val: g.pureEquityInvested },
+    { name: 'MF Equity',       val: g.mfEquityInvested },
+    { name: 'Gold',            val: g.goldInvested },
+    { name: 'Silver',          val: g.silverInvested },
+    { name: 'Foreign',         val: g.foreignInvested },
+    { name: 'Crypto',          val: w.cryptoInvested },
+    { name: 'Debt',            val: w.debtInvested + (w.mfDebtInvested ?? 0) },
+    { name: 'PF',              val: w.pfInvested },
+    { name: 'Bank',            val: w.bankTotal },
   ].filter(s => s.val > 0);
 
+  const totInv = w.eqTotalInvested + w.mfTotalInvested + g.foreignInvested + w.cryptoInvested + w.debtInvested + w.pfInvested;
+  const totCur = w.eqTotalCurrent  + w.mfTotalCurrent  + g.foreignCurrent  + w.cryptoCurrent  + w.debtCurrent  + w.pfCurrent;
+  const totPnl = totCur - totInv;
+
   const [expPie, wealthPie] = await Promise.all([
-    makePieChart(catLabels, catVals, 'Expense Categories'),
-    makePieChart(wealthSlices.map(s => s.name), wealthSlices.map(s => s.val), 'Wealth Allocation'),
+    makePieChart(Object.keys(catAgg), Object.values(catAgg), 'Expense Categories', `Total: ${fmtShort(totalExp)}`),
+    makePieChart(wealthSlices.map(s => s.name), wealthSlices.map(s => s.val), 'Wealth Allocation (Invested)', `Total: ${fmtShort(totInv)}`),
   ]);
 
-  // Charts in rows 2-20, side by side
-  for (let r = 2; r <= 20; r++) ws.getRow(r).height = 14;
-  ws.addImage(wb.addImage({ base64: expPie,    extension: 'png' }), { tl: { col: 0, row: 1 }, ext: { width: 320, height: 260 } } as Parameters<typeof ws.addImage>[1]);
-  ws.addImage(wb.addImage({ base64: wealthPie, extension: 'png' }), { tl: { col: 2, row: 1 }, ext: { width: 320, height: 260 } } as Parameters<typeof ws.addImage>[1]);
+  for (let r = 2; r <= 22; r++) ws.getRow(r).height = 14;
+  ws.addImage(wb.addImage({ base64: expPie,    extension: 'png' }), { tl: { col: 0, row: 1 }, ext: { width: 420, height: 300 } } as Parameters<typeof ws.addImage>[1]);
+  ws.addImage(wb.addImage({ base64: wealthPie, extension: 'png' }), { tl: { col: 2, row: 1 }, ext: { width: 420, height: 300 } } as Parameters<typeof ws.addImage>[1]);
 
-  let r = 21;
+  let r = 23;
 
   function heroCard(rowN: number, label: string, value: string, tc: string, pale: string, mid: string) {
     const row  = ws.getRow(rowN);
@@ -1098,10 +1380,37 @@ async function buildSummarySheet(wb: import('exceljs').Workbook, raw: LocalTrans
   heroCard(r++, '🏦 Total Assets',    fmtShort(w.totalAssets),      P.greenDk, P.greenPale, P.greenMid);
   heroCard(r++, '💳 Total Liab.',     fmtShort(w.totalLiabilities), P.redDk,   P.redPale,   P.redMid);
 
-  const totInv = w.eqTotalInvested + w.mfTotalInvested + w.indmoneyInvested + w.cryptoInvested + w.debtInvested + w.pfInvested;
-  const totCur = w.eqTotalCurrent  + w.mfTotalCurrent  + w.indmoneyCurrent  + w.cryptoCurrent  + w.debtCurrent  + w.pfCurrent;
-  const totPnl = totCur - totInv;
+  r++;
+  sectionHeader(ws, r++, 4, '📊 Asset Breakdown (Invested Amount)', P.amberDk, P.amberMid);
+  if (g.pureEquityInvested > 0) kvRow(r++, 'Equity Stocks (Zerodha)',        inr(g.pureEquityInvested), P.purple);
+  if (g.mfEquityInvested > 0)   kvRow(r++, 'MF Equity Funds (Coin)',         inr(g.mfEquityInvested),   P.tealDk);
+  if (g.goldInvested > 0) {
+    kvRow(r++, 'Gold — Total (ETF + MF)',             inr(g.goldInvested),       P.amber);
+    if (g.eqGoldInvested > 0)   kvRow(r++, '  ↳ Gold ETF (Kite)',             inr(g.eqGoldInvested),     P.amber);
+    if (g.mfGoldInvested > 0)   kvRow(r++, '  ↳ Gold MF (Coin)',              inr(g.mfGoldInvested),     P.amber);
+  }
+  if (g.silverInvested > 0) {
+    kvRow(r++, 'Silver — Total (ETF + MF)',           inr(g.silverInvested),     P.silver);
+    if (g.eqSilverInvested > 0) kvRow(r++, '  ↳ Silver ETF (Kite)',            inr(g.eqSilverInvested),   P.silver);
+    if (g.mfSilverInvested > 0) kvRow(r++, '  ↳ Silver MF (Coin)',             inr(g.mfSilverInvested),   P.silver);
+  }
+  if (g.foreignInvested > 0) {
+    kvRow(r++, 'Foreign Stocks — Total',              inr(g.foreignInvested),    P.teal);
+    if (g.eqForeignInvested > 0) kvRow(r++, '  ↳ Zerodha Foreign ETF (Kite)', inr(g.eqForeignInvested),  P.teal);
+    if (w.indmoneyInvested > 0) kvRow(r++, '  ↳ IND Money (US Stocks)',        inr(w.indmoneyInvested),   P.teal);
+  }
+  if (w.cryptoInvested > 0)     kvRow(r++, 'Crypto (CoinDCX)',                 inr(w.cryptoInvested),     P.orange);
+  if (w.debtInvested > 0) {
+    kvRow(r++, 'Debt — Total',                        inr(w.debtInvested),       P.violet);
+    if (w.bondInvested ?? 0 > 0) kvRow(r++, '  ↳ Bonds (Stable Money)',        inr(w.bondInvested ?? 0),  P.violet);
+    if (w.fdInvested ?? 0 > 0)   kvRow(r++, '  ↳ Fixed Deposit',               inr(w.fdInvested ?? 0),    P.violet);
+  }
+  if (w.pfInvested > 0)         kvRow(r++, 'Provident Fund (EPFO)',             inr(w.pfInvested),         P.green);
+  if (w.bankTotal > 0)          kvRow(r++, 'Bank & Cash',                       inr(w.bankTotal),          P.slate);
+
+  r++;
   kvRow(r++, 'Total Invested',  inr(totInv), P.gray600);
+  kvRow(r++, 'Current Value',   inr(totCur), P.purpleDk);
   kvRow(r++, 'Total P&L',       inr(totPnl), totPnl >= 0 ? P.greenDk : P.redDk);
   if (totInv > 0) kvRow(r++, 'Overall Return', totPnl / totInv, totPnl >= 0 ? P.greenDk : P.redDk, '0.0%');
 

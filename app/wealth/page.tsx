@@ -339,7 +339,7 @@ function AllocationDonut({ slices, theme }: { slices: AssetSlice[]; theme: 'dark
   const activeSlice = activeIndex !== null ? slices[activeIndex] : null;
 
   return (
-    <div className="mx-4 mb-5 rounded-2xl overflow-hidden" style={{
+    <div className="rounded-2xl overflow-hidden" style={{
       backgroundColor: 'var(--card)',
       border: '1.5px solid var(--border)',
       borderLeft: '3px solid var(--accent)',
@@ -353,7 +353,7 @@ function AllocationDonut({ slices, theme }: { slices: AssetSlice[]; theme: 'dark
             <p className="text-[11px] font-medium mt-0.5" style={{ color: 'var(--text2)' }}>
               {activeSlice ? (
                 <span style={{ color: activeSlice.color }}>● {activeSlice.name}</span>
-              ) : 'Hover a slice or card to inspect'}
+              ) : 'By invested amount · hover to inspect'}
             </p>
           </div>
           <div className="px-3 py-1.5 rounded-xl" style={{ background: 'var(--accent-bg)', border: '1.5px solid var(--accent-border)' }}>
@@ -432,7 +432,7 @@ function AllocationDonut({ slices, theme }: { slices: AssetSlice[]; theme: 'dark
             </>
           ) : (
             <>
-              <p style={{ fontSize: 9, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.12em', lineHeight: 1 }}>Portfolio</p>
+              <p style={{ fontSize: 9, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.12em', lineHeight: 1 }}>Invested</p>
               <p style={{ fontSize: 21, fontWeight: 900, color: 'var(--text)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1, whiteSpace: 'nowrap' }}>{fmtShort(total)}</p>
               <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--text3)', lineHeight: 1 }}>{slices.length} assets</p>
             </>
@@ -441,8 +441,8 @@ function AllocationDonut({ slices, theme }: { slices: AssetSlice[]; theme: 'dark
       </div>
 
       {/* Legend grid */}
-      <div className="px-4 pb-5 grid grid-cols-2 gap-2" style={{ borderTop: '1px solid var(--border)' }}>
-        <div className="col-span-2 pt-3 pb-1">
+      <div className="px-4 pb-5 grid grid-cols-2 sm:grid-cols-3 gap-2" style={{ borderTop: '1px solid var(--border)' }}>
+        <div className="col-span-2 sm:col-span-3 pt-3 pb-1">
           <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Breakdown</p>
         </div>
         {slices.map((s, i) => {
@@ -534,7 +534,7 @@ function PnlBarChart({ bars }: { bars: PnlBar[] }) {
   const overallPct = totalInvested > 0 ? (overallGain / totalInvested) * 100 : 0;
 
   return (
-    <div className="mx-4 mb-5 rounded-2xl overflow-hidden" style={{
+    <div className="rounded-2xl overflow-hidden" style={{
       backgroundColor: 'var(--card)',
       border: '1.5px solid var(--border)',
       borderLeft: `3px solid ${overallGain >= 0 ? 'var(--income)' : 'var(--expense)'}`,
@@ -758,23 +758,37 @@ export default function WealthPage() {
   const netWorth          = totalAssets - totalLiabilities;
 
   // ── charts data ─────────────────────────────────────────────────────────
+  const goldCurrent   = eqGoldCurrent   + mfGoldCurrent;
+  const goldInvested  = eqGoldInvested  + mfGoldInvested;
+  const silverCurrent  = eqSilverCurrent  + mfSilverCurrent;
+  const silverInvested = eqSilverInvested + mfSilverInvested;
+  const foreignCurrent  = eqForeignCurrent  + indmoneyCurrent;
+  const foreignInvested = eqForeignInvested + indmoneyInvested;
+  // Debt includes Stable Money (bonds/FD) + Zerodha Coin MF–Debt
+  const totalDebtInvested = debtInvested + mfDebtInvested;
+  const totalDebtCurrent  = debtCurrent  + mfDebtCurrent;
+
   const allocationSlices: AssetSlice[] = [
-    { name: 'Stocks (Kite)', value: eqTotalCurrent,   color: ASSET_COLORS[0], darkColor: ASSET_COLORS_DARK[0] },
-    { name: 'Mutual Funds',  value: mfTotalCurrent,   color: ASSET_COLORS[1], darkColor: ASSET_COLORS_DARK[1] },
-    { name: 'US Stocks',     value: indmoneyCurrent,  color: ASSET_COLORS[2], darkColor: ASSET_COLORS_DARK[2] },
-    { name: 'Crypto',        value: cryptoCurrent,    color: ASSET_COLORS[3], darkColor: ASSET_COLORS_DARK[3] },
-    { name: 'Debt',          value: debtCurrent,      color: ASSET_COLORS[4], darkColor: ASSET_COLORS_DARK[4] },
-    { name: 'PF',            value: pfCurrent,        color: ASSET_COLORS[5], darkColor: ASSET_COLORS_DARK[5] },
-    { name: 'Bank & Cash',   value: bankTotal,        color: ASSET_COLORS[6], darkColor: ASSET_COLORS_DARK[6] },
+    { name: 'Equity (Stocks)',  value: equityInvested,      color: ASSET_COLORS[0], darkColor: ASSET_COLORS_DARK[0] },
+    { name: 'Mutual Funds',     value: mfEquityInvested,    color: ASSET_COLORS[1], darkColor: ASSET_COLORS_DARK[1] },
+    { name: 'Foreign Stocks',   value: foreignInvested,     color: ASSET_COLORS[2], darkColor: ASSET_COLORS_DARK[2] },
+    { name: 'Gold',             value: goldInvested,        color: ASSET_COLORS[7], darkColor: ASSET_COLORS_DARK[7] },
+    { name: 'Silver',           value: silverInvested,      color: '#94a3b8',        darkColor: '#475569' },
+    { name: 'Crypto',           value: cryptoInvested,      color: ASSET_COLORS[3], darkColor: ASSET_COLORS_DARK[3] },
+    { name: 'Debt',             value: totalDebtInvested,   color: ASSET_COLORS[4], darkColor: ASSET_COLORS_DARK[4] },
+    { name: 'PF',               value: pfInvested,          color: ASSET_COLORS[5], darkColor: ASSET_COLORS_DARK[5] },
+    { name: 'Bank & Cash',      value: bankTotal,           color: ASSET_COLORS[6], darkColor: ASSET_COLORS_DARK[6] },
   ].filter(s => s.value > 0);
 
   const pnlBars: PnlBar[] = [
-    { name: 'Stocks',  invested: eqTotalInvested,  current: eqTotalCurrent,   color: ASSET_COLORS[0] },
-    { name: 'MF',      invested: mfTotalInvested,  current: mfTotalCurrent,   color: ASSET_COLORS[1] },
-    { name: 'US',      invested: indmoneyInvested, current: indmoneyCurrent,  color: ASSET_COLORS[2] },
-    { name: 'Crypto',  invested: cryptoInvested,   current: cryptoCurrent,    color: ASSET_COLORS[3] },
-    { name: 'Debt',    invested: debtInvested,     current: debtCurrent,      color: ASSET_COLORS[4] },
-    { name: 'PF',      invested: pfInvested,       current: pfCurrent,        color: ASSET_COLORS[5] },
+    { name: 'Equity',   invested: equityInvested,      current: equityCurrent,      color: ASSET_COLORS[0] },
+    { name: 'MF',       invested: mfEquityInvested,    current: mfEquityCurrent,    color: ASSET_COLORS[1] },
+    { name: 'Foreign',  invested: foreignInvested,     current: foreignCurrent,     color: ASSET_COLORS[2] },
+    { name: 'Gold',     invested: goldInvested,        current: goldCurrent,        color: ASSET_COLORS[7] },
+    { name: 'Silver',   invested: silverInvested,      current: silverCurrent,      color: '#94a3b8' },
+    { name: 'Crypto',   invested: cryptoInvested,      current: cryptoCurrent,      color: ASSET_COLORS[3] },
+    { name: 'Debt',     invested: totalDebtInvested,   current: totalDebtCurrent,   color: ASSET_COLORS[4] },
+    { name: 'PF',       invested: pfInvested,          current: pfCurrent,          color: ASSET_COLORS[5] },
   ].filter(b => b.invested > 0 || b.current > 0);
 
   if (loadingManual) {
@@ -787,10 +801,10 @@ export default function WealthPage() {
   }
 
   return (
-    <div className="max-w-lg mx-auto pb-28 min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+    <div className="max-w-lg md:max-w-2xl lg:max-w-4xl xl:max-w-5xl mx-auto pb-28 min-h-screen px-0 md:px-4 lg:px-6" style={{ backgroundColor: 'var(--bg)' }}>
 
       {/* ── Header ── */}
-      <header className="px-5 pt-14 pb-6 flex items-start justify-between">
+      <header className="px-5 md:px-6 pt-8 md:pt-10 pb-5 flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(108,99,255,0.22), rgba(108,99,255,0.08))', border: '1.5px solid rgba(108,99,255,0.28)' }}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -815,73 +829,117 @@ export default function WealthPage() {
         </div>
       </header>
 
-      {/* ── Net Worth Hero ── */}
-      <div className="mx-4 mb-5 rounded-2xl relative overflow-hidden" style={{
-        background: 'var(--hero-bg)',
-        border: '1.5px solid var(--hero-border)',
-        borderLeft: '3px solid var(--accent)',
-        boxShadow: 'var(--hero-shadow)',
-      }}>
-        {/* glow blobs */}
-        <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full pointer-events-none" style={{
-          background: `radial-gradient(circle, var(--hero-glow) 0%, transparent 65%)`,
-        }} />
-        <div className="absolute -bottom-10 -left-10 w-40 h-40 rounded-full pointer-events-none" style={{
-          background: `radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%)`,
-        }} />
+      {/* ── Net Worth Hero + Donut side-by-side, Bar chart below ── */}
+      <div className="mx-4 md:mx-0 mb-4 space-y-4">
 
-        <div className="relative px-5 pt-6 pb-5">
-          <p style={{ fontSize: 11, letterSpacing: '0.18em', color: 'var(--hero-label)', marginBottom: 8, fontWeight: 700, textTransform: 'uppercase' }}>Total Net Worth</p>
-          <p className="font-black tracking-tight" style={{ fontSize: 'clamp(2.2rem,9vw,3.2rem)', lineHeight: 1.05, color: 'var(--hero-value)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.03em' }}>{fmtShort(netWorth)}</p>
-          <p style={{ fontSize: 13, color: 'var(--hero-sub)', marginTop: 6, marginBottom: 22, fontVariantNumeric: 'tabular-nums', fontWeight: 500, letterSpacing: '-0.01em' }}>{fmt(netWorth)}</p>
+        {/* Row 1: Hero + Donut */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
 
-          <div className="grid grid-cols-3 gap-2.5 pt-4" style={{ borderTop: '1px solid var(--hero-divider)' }}>
-            <div className="rounded-2xl p-3.5" style={{ background: 'var(--hero-stat-assets-bg)', border: '1.5px solid var(--hero-stat-assets-border)' }}>
-              <p style={{ fontSize: 9, color: 'var(--hero-stat-label)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 5, fontWeight: 700 }}>Assets</p>
-              <p style={{ fontSize: 14, fontWeight: 900, color: 'var(--hero-stat-assets-val)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{fmtShort(totalAssets)}</p>
-            </div>
-            <div className="rounded-2xl p-3.5" style={{ background: 'var(--hero-stat-liab-bg)', border: '1.5px solid var(--hero-stat-liab-border)' }}>
-              <p style={{ fontSize: 9, color: 'var(--hero-stat-label)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 5, fontWeight: 700 }}>Liabilities</p>
-              <p style={{ fontSize: 14, fontWeight: 900, color: 'var(--hero-stat-liab-val)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{fmtShort(totalLiabilities)}</p>
-            </div>
-            {totalAssets > 0 && (
-              <div className="rounded-2xl p-3.5" style={{ background: 'var(--hero-stat-inv-bg)', border: '1.5px solid var(--hero-stat-inv-border)' }}>
-                <p style={{ fontSize: 9, color: 'var(--hero-stat-label)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 5, fontWeight: 700 }}>Invested</p>
-                <p style={{ fontSize: 14, fontWeight: 900, color: 'var(--hero-stat-inv-val)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{fmtShort(eqTotalInvested + mfTotalInvested + indmoneyInvested + cryptoInvested + debtInvested + pfInvested)}</p>
+          {/* Hero card */}
+          <div className="rounded-2xl relative overflow-hidden" style={{
+            background: 'var(--hero-bg)',
+            border: '1.5px solid var(--hero-border)',
+            borderLeft: '3px solid var(--accent)',
+            boxShadow: 'var(--hero-shadow)',
+          }}>
+            {/* glow blobs */}
+            <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full pointer-events-none" style={{
+              background: `radial-gradient(circle, var(--hero-glow) 0%, transparent 65%)`,
+            }} />
+            <div className="absolute -bottom-10 -left-10 w-40 h-40 rounded-full pointer-events-none" style={{
+              background: `radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%)`,
+            }} />
+
+            <div className="relative px-5 pt-6 pb-5">
+              <p style={{ fontSize: 11, letterSpacing: '0.18em', color: 'var(--hero-label)', marginBottom: 8, fontWeight: 700, textTransform: 'uppercase' }}>Total Net Worth</p>
+              <p className="font-black tracking-tight" style={{ fontSize: 'clamp(2.4rem,5vw,3.4rem)', lineHeight: 1.05, color: 'var(--hero-value)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.03em' }}>{fmtShort(netWorth)}</p>
+              <p style={{ fontSize: 13, color: 'var(--hero-sub)', marginTop: 6, marginBottom: 22, fontVariantNumeric: 'tabular-nums', fontWeight: 500, letterSpacing: '-0.01em' }}>{fmt(netWorth)}</p>
+
+              <div className="grid grid-cols-3 gap-2 pt-4" style={{ borderTop: '1px solid var(--hero-divider)' }}>
+                <div className="rounded-2xl p-3" style={{ background: 'var(--hero-stat-assets-bg)', border: '1.5px solid var(--hero-stat-assets-border)' }}>
+                  <p style={{ fontSize: 9, color: 'var(--hero-stat-label)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4, fontWeight: 700 }}>Assets</p>
+                  <p style={{ fontSize: 13, fontWeight: 900, color: 'var(--hero-stat-assets-val)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{fmtShort(totalAssets)}</p>
+                </div>
+                <div className="rounded-2xl p-3" style={{ background: 'var(--hero-stat-liab-bg)', border: '1.5px solid var(--hero-stat-liab-border)' }}>
+                  <p style={{ fontSize: 9, color: 'var(--hero-stat-label)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4, fontWeight: 700 }}>Liabilities</p>
+                  <p style={{ fontSize: 13, fontWeight: 900, color: 'var(--hero-stat-liab-val)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{fmtShort(totalLiabilities)}</p>
+                </div>
+                {totalAssets > 0 && (
+                  <div className="rounded-2xl p-3" style={{ background: 'var(--hero-stat-inv-bg)', border: '1.5px solid var(--hero-stat-inv-border)' }}>
+                    <p style={{ fontSize: 9, color: 'var(--hero-stat-label)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4, fontWeight: 700 }}>Invested</p>
+                    <p style={{ fontSize: 13, fontWeight: 900, color: 'var(--hero-stat-inv-val)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{fmtShort(eqTotalInvested + mfTotalInvested + indmoneyInvested + cryptoInvested + debtInvested + pfInvested)}</p>
+                  </div>
+                )}
               </div>
-            )}
+
+              {/* Allocation mini-bars — always visible inside hero */}
+              {allocationSlices.length > 0 && (
+                <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--hero-divider)' }}>
+                  <p style={{ fontSize: 9, fontWeight: 700, color: 'var(--hero-label)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>Asset Allocation</p>
+                  <div className="space-y-2">
+                    {allocationSlices.map((s) => {
+                      const total = allocationSlices.reduce((a, x) => a + x.value, 0);
+                      const pct = total > 0 ? (s.value / total) * 100 : 0;
+                      return (
+                        <div key={s.name}>
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-1.5">
+                              <div style={{ width: 7, height: 7, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+                              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text2)' }}>{s.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text)' }}>{fmtShort(s.value)}</span>
+                              <span style={{ fontSize: 9, fontWeight: 700, color: s.color, minWidth: 32, textAlign: 'right' }}>{pct.toFixed(1)}%</span>
+                            </div>
+                          </div>
+                          <div style={{ height: 3, borderRadius: 99, background: 'var(--border2)' }}>
+                            <div style={{ height: '100%', borderRadius: 99, width: `${pct}%`, background: s.color, transition: 'width 0.4s' }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Donut chart — always visible on all screen sizes */}
+          {allocationSlices.length > 0 && (
+            <AllocationDonut slices={allocationSlices} theme={theme} />
+          )}
         </div>
+
+        {/* Row 2: Bar chart full width */}
+        {pnlBars.length > 0 && <PnlBarChart bars={pnlBars} />}
       </div>
 
-      {/* ── Charts ── */}
-      {allocationSlices.length > 0 && <AllocationDonut slices={allocationSlices} theme={theme} />}
-      {pnlBars.length > 0 && <PnlBarChart bars={pnlBars} />}
+      <div className="px-4 md:px-0 space-y-4">
 
-      <div className="px-4 space-y-4">
+        {/* ── Row: Bank & Cash + Liabilities ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Section title="Bank & Cash" icon={<BankIcon />} badge="Manual" accentColor="var(--clr-bank)"
+            current={bankTotal} invested={bankTotal}>
+            <EditableField label="SBI Bank Balance" fieldKey="bank_balance" value={mv('bank_balance')} note={mn('bank_balance')} onSaved={loadManual} />
+            <EditableField label="Cash in Hand" fieldKey="cash_in_hand" value={mv('cash_in_hand')} note={mn('cash_in_hand')} onSaved={loadManual} />
+            <EditableField label="Mobikwik Wallet" fieldKey="mobikwik" value={mv('mobikwik')} note={mn('mobikwik')} onSaved={loadManual} />
+            {bankTotal > 0 && (
+              <div className="flex justify-between mt-3 pt-2" style={{ borderTop: '1px solid var(--border2)' }}>
+                <span className="text-xs font-semibold" style={{ color: 'var(--text)' }}>Total</span>
+                <span className="text-sm font-bold" style={{ color: 'var(--text)' }}>{fmt(bankTotal)}</span>
+              </div>
+            )}
+          </Section>
 
-        {/* ── BANK & CASH ── */}
-        <Section title="Bank & Cash" icon={<BankIcon />} badge="Manual" accentColor="var(--clr-bank)"
-          current={bankTotal} invested={bankTotal}>
-          <EditableField label="SBI Bank Balance" fieldKey="bank_balance" value={mv('bank_balance')} note={mn('bank_balance')} onSaved={loadManual} />
-          <EditableField label="Cash in Hand" fieldKey="cash_in_hand" value={mv('cash_in_hand')} note={mn('cash_in_hand')} onSaved={loadManual} />
-          <EditableField label="Mobikwik Wallet" fieldKey="mobikwik" value={mv('mobikwik')} note={mn('mobikwik')} onSaved={loadManual} />
-          {bankTotal > 0 && (
-            <div className="flex justify-between mt-3 pt-2" style={{ borderTop: '1px solid var(--border2)' }}>
-              <span className="text-xs font-semibold" style={{ color: 'var(--text)' }}>Total</span>
-              <span className="text-sm font-bold" style={{ color: 'var(--text)' }}>{fmt(bankTotal)}</span>
-            </div>
-          )}
-        </Section>
+          <Section title="Liabilities" icon={<CardIcon />} accentColor="var(--clr-liab)">
+            <EditableField label="Credit Card Due" fieldKey="credit_card_due" value={mv('credit_card_due')} onSaved={loadManual} />
+            <Divider label="Pay To Someone" />
+            <EditableField label="Amount Owed" fieldKey="pay_to_someone" value={mv('pay_to_someone')} note={mn('pay_to_someone')} onSaved={loadManual} />
+          </Section>
+        </div>
 
-        {/* ── LIABILITIES ── */}
-        <Section title="Liabilities" icon={<CardIcon />} accentColor="var(--clr-liab)">
-          <EditableField label="Credit Card Due" fieldKey="credit_card_due" value={mv('credit_card_due')} onSaved={loadManual} />
-          <Divider label="Pay To Someone" />
-          <EditableField label="Amount Owed" fieldKey="pay_to_someone" value={mv('pay_to_someone')} note={mn('pay_to_someone')} onSaved={loadManual} />
-        </Section>
-
-        {/* ── ZERODHA ── */}
+        {/* ── ZERODHA — full width ── */}
+        <div>
         <Section title="Zerodha (Kite + Coin)" icon={<ChartIcon />} badge="Holdings XLSX" accentColor="var(--clr-zerodha)"
           invested={eqTotalInvested + mfTotalInvested} current={eqTotalCurrent + mfTotalCurrent}
           loading={loadingEquity || loadingMf}>
@@ -922,41 +980,47 @@ export default function WealthPage() {
             </div>
           )}
 
-          <Divider label="Equity – Stocks" />
-          <LiveOrEditRow label="Invested"      live={eb?.equity?.invested} fieldKey="equity_invested"  value={mv('equity_invested')}  note={mn('equity_invested')}  kiteConnected={!!equityLive?.success} onSaved={loadManual} />
-          <LiveOrEditRow label="Current Value" live={eb?.equity?.current}  fieldKey="equity_current"   value={mv('equity_current')}   note={mn('equity_current')}   kiteConnected={!!equityLive?.success} onSaved={loadManual} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
+            <div>
+              <Divider label="Equity – Stocks" />
+              <LiveOrEditRow label="Invested"      live={eb?.equity?.invested} fieldKey="equity_invested"  value={mv('equity_invested')}  note={mn('equity_invested')}  kiteConnected={!!equityLive?.success} onSaved={loadManual} />
+              <LiveOrEditRow label="Current Value" live={eb?.equity?.current}  fieldKey="equity_current"   value={mv('equity_current')}   note={mn('equity_current')}   kiteConnected={!!equityLive?.success} onSaved={loadManual} />
 
-          <Divider label="Equity – Gold ETF" />
-          <LiveOrEditRow label="Invested"      live={eb?.gold?.invested}   fieldKey="equity_gold_invested"  value={mv('equity_gold_invested')}  note={mn('equity_gold_invested')}  kiteConnected={!!equityLive?.success} onSaved={loadManual} />
-          <LiveOrEditRow label="Current Value" live={eb?.gold?.current}    fieldKey="equity_gold_current"   value={mv('equity_gold_current')}   note={mn('equity_gold_current')}   kiteConnected={!!equityLive?.success} onSaved={loadManual} />
+              <Divider label="Equity – Gold ETF" />
+              <LiveOrEditRow label="Invested"      live={eb?.gold?.invested}   fieldKey="equity_gold_invested"  value={mv('equity_gold_invested')}  note={mn('equity_gold_invested')}  kiteConnected={!!equityLive?.success} onSaved={loadManual} />
+              <LiveOrEditRow label="Current Value" live={eb?.gold?.current}    fieldKey="equity_gold_current"   value={mv('equity_gold_current')}   note={mn('equity_gold_current')}   kiteConnected={!!equityLive?.success} onSaved={loadManual} />
 
-          <Divider label="Equity – Silver ETF" />
-          <LiveOrEditRow label="Invested"      live={eb?.silver?.invested} fieldKey="equity_silver_invested" value={mv('equity_silver_invested')} note={mn('equity_silver_invested')} kiteConnected={!!equityLive?.success} onSaved={loadManual} />
-          <LiveOrEditRow label="Current Value" live={eb?.silver?.current}  fieldKey="equity_silver_current"  value={mv('equity_silver_current')}  note={mn('equity_silver_current')}  kiteConnected={!!equityLive?.success} onSaved={loadManual} />
+              <Divider label="Equity – Silver ETF" />
+              <LiveOrEditRow label="Invested"      live={eb?.silver?.invested} fieldKey="equity_silver_invested" value={mv('equity_silver_invested')} note={mn('equity_silver_invested')} kiteConnected={!!equityLive?.success} onSaved={loadManual} />
+              <LiveOrEditRow label="Current Value" live={eb?.silver?.current}  fieldKey="equity_silver_current"  value={mv('equity_silver_current')}  note={mn('equity_silver_current')}  kiteConnected={!!equityLive?.success} onSaved={loadManual} />
 
-          <Divider label="Equity – Foreign ETF" />
-          <LiveOrEditRow label="Invested"      live={eb?.foreign?.invested} fieldKey="equity_foreign_invested" value={mv('equity_foreign_invested')} note={mn('equity_foreign_invested')} kiteConnected={!!equityLive?.success} onSaved={loadManual} />
-          <LiveOrEditRow label="Current Value" live={eb?.foreign?.current}  fieldKey="equity_foreign_current"  value={mv('equity_foreign_current')}  note={mn('equity_foreign_current')}  kiteConnected={!!equityLive?.success} onSaved={loadManual} />
+              <Divider label="Equity – Foreign ETF" />
+              <LiveOrEditRow label="Invested"      live={eb?.foreign?.invested} fieldKey="equity_foreign_invested" value={mv('equity_foreign_invested')} note={mn('equity_foreign_invested')} kiteConnected={!!equityLive?.success} onSaved={loadManual} />
+              <LiveOrEditRow label="Current Value" live={eb?.foreign?.current}  fieldKey="equity_foreign_current"  value={mv('equity_foreign_current')}  note={mn('equity_foreign_current')}  kiteConnected={!!equityLive?.success} onSaved={loadManual} />
 
-          <TotalRow label="Equity Total" accentColor="var(--clr-zerodha)" invested={eqTotalInvested} current={eqTotalCurrent} fetchedAt={equityLive?.success ? equityLive.fetched_at : undefined} onRefresh={loadEquity} />
+              <TotalRow label="Equity Total" accentColor="var(--clr-zerodha)" invested={eqTotalInvested} current={eqTotalCurrent} fetchedAt={equityLive?.success ? equityLive.fetched_at : undefined} onRefresh={loadEquity} />
+            </div>
 
-          <Divider label="MF – Equity Funds" />
-          <LiveOrEditRow label="Invested"      live={mb?.equity?.invested} fieldKey="mf_equity_invested" value={mv('mf_equity_invested')} note={mn('mf_equity_invested')} kiteConnected={!!mfLive?.success} onSaved={loadManual} />
-          <LiveOrEditRow label="Current Value" live={mb?.equity?.current}  fieldKey="mf_equity_current"  value={mv('mf_equity_current')}  note={mn('mf_equity_current')}  kiteConnected={!!mfLive?.success} onSaved={loadManual} />
+            <div>
+              <Divider label="MF – Equity Funds" />
+              <LiveOrEditRow label="Invested"      live={mb?.equity?.invested} fieldKey="mf_equity_invested" value={mv('mf_equity_invested')} note={mn('mf_equity_invested')} kiteConnected={!!mfLive?.success} onSaved={loadManual} />
+              <LiveOrEditRow label="Current Value" live={mb?.equity?.current}  fieldKey="mf_equity_current"  value={mv('mf_equity_current')}  note={mn('mf_equity_current')}  kiteConnected={!!mfLive?.success} onSaved={loadManual} />
 
-          <Divider label="MF – Gold" />
-          <LiveOrEditRow label="Invested"      live={mb?.gold?.invested}   fieldKey="mf_gold_invested"   value={mv('mf_gold_invested')}   note={mn('mf_gold_invested')}   kiteConnected={!!mfLive?.success} onSaved={loadManual} />
-          <LiveOrEditRow label="Current Value" live={mb?.gold?.current}    fieldKey="mf_gold_current"    value={mv('mf_gold_current')}    note={mn('mf_gold_current')}    kiteConnected={!!mfLive?.success} onSaved={loadManual} />
+              <Divider label="MF – Gold" />
+              <LiveOrEditRow label="Invested"      live={mb?.gold?.invested}   fieldKey="mf_gold_invested"   value={mv('mf_gold_invested')}   note={mn('mf_gold_invested')}   kiteConnected={!!mfLive?.success} onSaved={loadManual} />
+              <LiveOrEditRow label="Current Value" live={mb?.gold?.current}    fieldKey="mf_gold_current"    value={mv('mf_gold_current')}    note={mn('mf_gold_current')}    kiteConnected={!!mfLive?.success} onSaved={loadManual} />
 
-          <Divider label="MF – Silver" />
-          <LiveOrEditRow label="Invested"      live={mb?.silver?.invested} fieldKey="mf_silver_invested"  value={mv('mf_silver_invested')}  note={mn('mf_silver_invested')}  kiteConnected={!!mfLive?.success} onSaved={loadManual} />
-          <LiveOrEditRow label="Current Value" live={mb?.silver?.current}  fieldKey="mf_silver_current"   value={mv('mf_silver_current')}   note={mn('mf_silver_current')}   kiteConnected={!!mfLive?.success} onSaved={loadManual} />
+              <Divider label="MF – Silver" />
+              <LiveOrEditRow label="Invested"      live={mb?.silver?.invested} fieldKey="mf_silver_invested"  value={mv('mf_silver_invested')}  note={mn('mf_silver_invested')}  kiteConnected={!!mfLive?.success} onSaved={loadManual} />
+              <LiveOrEditRow label="Current Value" live={mb?.silver?.current}  fieldKey="mf_silver_current"   value={mv('mf_silver_current')}   note={mn('mf_silver_current')}   kiteConnected={!!mfLive?.success} onSaved={loadManual} />
 
-          <Divider label="MF – Debt" />
-          <LiveOrEditRow label="Invested"      live={mb?.debt?.invested}   fieldKey="mf_debt_invested"   value={mv('mf_debt_invested')}   note={mn('mf_debt_invested')}   kiteConnected={!!mfLive?.success} onSaved={loadManual} />
-          <LiveOrEditRow label="Current Value" live={mb?.debt?.current}    fieldKey="mf_debt_current"    value={mv('mf_debt_current')}    note={mn('mf_debt_current')}    kiteConnected={!!mfLive?.success} onSaved={loadManual} />
+              <Divider label="MF – Debt" />
+              <LiveOrEditRow label="Invested"      live={mb?.debt?.invested}   fieldKey="mf_debt_invested"   value={mv('mf_debt_invested')}   note={mn('mf_debt_invested')}   kiteConnected={!!mfLive?.success} onSaved={loadManual} />
+              <LiveOrEditRow label="Current Value" live={mb?.debt?.current}    fieldKey="mf_debt_current"    value={mv('mf_debt_current')}    note={mn('mf_debt_current')}    kiteConnected={!!mfLive?.success} onSaved={loadManual} />
 
-          <TotalRow label="MF Total" accentColor="var(--clr-indmoney)" invested={mfTotalInvested} current={mfTotalCurrent} fetchedAt={mfLive?.success ? mfLive.fetched_at : undefined} onRefresh={loadMf} />
+              <TotalRow label="MF Total" accentColor="var(--clr-indmoney)" invested={mfTotalInvested} current={mfTotalCurrent} fetchedAt={mfLive?.success ? mfLive.fetched_at : undefined} onRefresh={loadMf} />
+            </div>
+          </div>
 
           <div className="flex justify-between mt-2 pt-3" style={{ borderTop: '1px solid var(--border2)' }}>
             <span className="text-sm font-bold" style={{ color: 'var(--text)' }}>Grand Total</span>
@@ -982,12 +1046,16 @@ export default function WealthPage() {
             <button onClick={loadMf} className="text-[10px] mt-1" style={{ color: 'var(--accent)' }}>Retry Coin API</button>
           )}
         </Section>
+        </div>
+
+        {/* ── Row: IND Money + Crypto ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
         {/* ── IND MONEY ── */}
         <Section
           title="Foreign Equity (IND Money)"
           icon={<GlobeIcon />}
-          badge={indmoneyLive?.success ? 'US Stocks · Live' : 'US Stocks · Manual'}
+          badge={indmoneyLive?.success ? 'Foreign Stocks · Live' : 'Foreign Stocks · Manual'}
           accentColor="var(--clr-indmoney)"
           invested={indmoneyInvested}
           current={indmoneyCurrent}
@@ -1067,6 +1135,10 @@ export default function WealthPage() {
             </>
           )}
         </Section>
+        </div>
+
+        {/* ── Row: Debt + PF ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
         {/* ── DEBT ── */}
         <Section title="Debt Instruments" icon={<BondIcon />} badge="Stable Money · Manual" accentColor="var(--clr-debt)"
@@ -1100,6 +1172,7 @@ export default function WealthPage() {
           <EditableField label="Total Contributed" fieldKey="pf_invested" value={mv('pf_invested')} note={mn('pf_invested')} onSaved={loadManual} />
           <EditableField label="Current Balance (with interest)" fieldKey="pf_current" value={mv('pf_current')} note={mn('pf_current')} onSaved={loadManual} />
         </Section>
+        </div>
 
         {/* ── API Status ── */}
         <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--card)', border: '1.5px solid var(--border)', borderLeft: '3px solid var(--accent)', boxShadow: 'var(--shadow-card)' }}>
@@ -1107,14 +1180,14 @@ export default function WealthPage() {
             <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Live API Status</p>
             <p className="text-[11px] mt-0.5" style={{ color: 'var(--text3)' }}>Connection status for all data sources</p>
           </div>
-          <div className="px-4 py-1">
+          <div className="px-4 py-1 grid grid-cols-1 md:grid-cols-2 md:gap-x-4">
             <ApiRow name="Zerodha Kite (equity)"     active={equityLive?.success}  loading={loadingEquity}
               hint={equityLive?.success ? 'Connected via Kite Connect OAuth' : equityLive?.error === 'token_expired' ? 'Session expired — reconnect above (daily)' : 'Click "Connect Zerodha" above'} />
             <ApiRow name="Zerodha Coin (MF)"         active={mfLive?.success}      loading={loadingMf}
               hint={mfLive?.success ? 'Connected — same Kite session covers MF' : 'Included in the Kite Connect session'} />
             <ApiRow name="CoinDCX (crypto)"          active={cryptoLive?.success}  loading={loadingCrypto}
               hint={cryptoLive?.success ? 'Connected — cost basis entered manually' : 'Add COINDCX_API_KEY + COINDCX_API_SECRET'} />
-            <ApiRow name="IND Money (US stocks)"     active={indmoneyLive?.success} loading={loadingIndmoney}
+            <ApiRow name="IND Money (Foreign stocks)" active={indmoneyLive?.success} loading={loadingIndmoney}
               hint={indmoneyLive?.success ? 'Connected via mcp.indmoney.com' : 'Click "Connect IND Money" above'} />
             <ApiRow name="SBI / Mobikwik"            active={false} unavailable hint="No public API — manual entry only" />
             <ApiRow name="Stable Money (bonds/FD)"   active={false} unavailable hint="No public API — manual entry only" />
@@ -1133,6 +1206,17 @@ export default function WealthPage() {
           cryptoCurrent, debtCurrent, pfCurrent,
           bankBalance, cashInHand, mobikwik, bankTotal,
           creditCardDue, payToSomeone,
+          // granular breakdowns for detailed export
+          eqEquityInvested: equityInvested,   eqEquityCurrent: equityCurrent,
+          eqGoldInvested,                     eqGoldCurrent,
+          eqSilverInvested,                   eqSilverCurrent,
+          eqForeignInvested,                  eqForeignCurrent,
+          mfEquityInvested,                   mfEquityCurrent,
+          mfGoldInvested,                     mfGoldCurrent,
+          mfSilverInvested,                   mfSilverCurrent,
+          mfDebtInvested,                     mfDebtCurrent,
+          bondInvested: mv('bond_invested') ?? 0,  bondCurrent: mv('bond_current') ?? 0,
+          fdInvested:   mv('fd_invested')   ?? 0,  fdCurrent:   mv('fd_current')   ?? 0,
         };
         const allTxs = [...loadManualTransactions(), ...loadExcelTransactions()];
         return (

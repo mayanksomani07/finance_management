@@ -45,7 +45,7 @@ export default function BottomNav() {
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}
     >
-      <div className="flex max-w-lg mx-auto">
+      <div className="flex max-w-4xl mx-auto">
         {tabs.map(({ href, label, icon }) => {
           const active = path === href;
           return (

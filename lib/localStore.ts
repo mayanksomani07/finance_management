@@ -40,3 +40,17 @@ export function clearAllTransactions(): void {
   localStorage.removeItem(EXCEL_KEY);
   localStorage.removeItem(MANUAL_KEY);
 }
+
+export function deleteTransaction(id: string): void {
+  const manual = loadManualTransactions().filter(t => t.id !== id);
+  localStorage.setItem(MANUAL_KEY, JSON.stringify(manual));
+  const excel = loadExcelTransactions().filter(t => t.id !== id);
+  localStorage.setItem(EXCEL_KEY, JSON.stringify(excel));
+}
+
+export function updateTransaction(updated: LocalTransaction): void {
+  const manual = loadManualTransactions().map(t => t.id === updated.id ? updated : t);
+  localStorage.setItem(MANUAL_KEY, JSON.stringify(manual));
+  const excel = loadExcelTransactions().map(t => t.id === updated.id ? updated : t);
+  localStorage.setItem(EXCEL_KEY, JSON.stringify(excel));
+}

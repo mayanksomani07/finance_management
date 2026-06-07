@@ -12,11 +12,13 @@ import ExportModal from '@/components/ExportModal';
 import type { WealthSnapshot } from '@/lib/exportExcel';
 import { categorizeExpense, normaliseIncomeCategory } from '@/lib/categorize';
 import {
-  loadExcelTransactions, saveExcelTransactions,
-  loadManualTransactions, saveManualTransaction,
+  loadExcelTransactions,
+  loadManualTransactions,
   clearAllTransactions, txFingerprint,
   type LocalTransaction,
 } from '@/lib/localStore';
+import { createTransaction, removeTransaction, editTransaction, importTransactions, fetchAllTransactions } from '@/lib/db';
+import EditTransactionModal from '@/components/EditTransactionModal';
 import type { MainCategory } from '@/lib/categorize';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -203,20 +205,20 @@ function AddModal({ onClose, onAdded }: { onClose: () => void; onAdded: (tx: Loc
       setError('This transaction already exists (same date, amount & category).');
       return;
     }
-    saveManualTransaction(tx);
     onAdded(tx);
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col justify-end"
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end sm:justify-center sm:items-center sm:p-4"
       style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="flex-1" onClick={onClose} />
-      <div className="w-full max-w-md mx-auto rounded-t-3xl"
-        style={{ background: 'var(--card)', border: '1px solid var(--border)', boxShadow: '0 -16px 64px rgba(0,0,0,0.35)', maxHeight: 'calc(100dvh - 80px)', display: 'flex', flexDirection: 'column', marginBottom: '64px' }}>
+      <div className="flex-1 sm:hidden" onClick={onClose} />
+      <div className="w-full max-w-md mx-auto rounded-t-3xl sm:rounded-3xl"
+        style={{ background: 'var(--card)', border: '1px solid var(--border)', boxShadow: '0 -16px 64px rgba(0,0,0,0.35)', maxHeight: 'calc(100dvh - 80px)', display: 'flex', flexDirection: 'column', marginBottom: '64px' }}
+        onClick={e => e.stopPropagation()}>
 
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 flex-shrink-0">
+        {/* Drag handle — mobile only */}
+        <div className="flex justify-center pt-3 flex-shrink-0 sm:hidden">
           <div className="w-10 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>
 
@@ -972,15 +974,16 @@ function FilterSheet({
     : FILTER_EXPENSE_GROUPS.filter(g => g.main === filterMain);
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col justify-end"
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end sm:justify-center sm:items-center sm:p-4"
       style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="flex-1" onClick={onClose} />
-      <div className="w-full max-w-md mx-auto rounded-t-3xl"
-        style={{ background: 'var(--card)', border: '1px solid var(--border)', boxShadow: '0 -16px 64px rgba(0,0,0,0.35)', maxHeight: 'calc(100dvh - 80px)', display: 'flex', flexDirection: 'column', marginBottom: '64px' }}>
+      <div className="flex-1 sm:hidden" onClick={onClose} />
+      <div className="w-full max-w-md mx-auto rounded-t-3xl sm:rounded-3xl"
+        style={{ background: 'var(--card)', border: '1px solid var(--border)', boxShadow: '0 -16px 64px rgba(0,0,0,0.35)', maxHeight: 'calc(100dvh - 80px)', display: 'flex', flexDirection: 'column', marginBottom: '64px' }}
+        onClick={e => e.stopPropagation()}>
 
         {/* Drag handle */}
-        <div className="flex justify-center pt-3 flex-shrink-0">
+        <div className="flex justify-center pt-3 flex-shrink-0 sm:hidden">
           <div className="w-10 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>
 
@@ -1159,8 +1162,7 @@ function ImportBanner({ onImport, onClear }: {
       const dupeCount = all.length - fresh.length;
 
       if (fresh.length > 0) {
-        const merged = [...fresh, ...existing].sort((a, b) => b.date.localeCompare(a.date));
-        saveExcelTransactions(merged);
+        await importTransactions(fresh);
       }
 
       const msg = fresh.length === 0
@@ -1249,49 +1251,153 @@ function ImportBanner({ onImport, onClear }: {
 
 // ─── Transaction Card ──────────────────────────────────────────────────────────
 
-function TxCard({ tx }: { tx: EnrichedTx }) {
-  const [exp, setExp] = useState(false);
+function TxCard({ tx, onEdit, onDelete }: { tx: EnrichedTx; onEdit: (tx: EnrichedTx) => void; onDelete: (tx: EnrichedTx) => void }) {
+  const [exp, setExp]               = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+  const [revealed, setRevealed]     = useState(false); // touch: swiped; mouse: hovered actions
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+  const isTouch = useRef(false);
   const isIncome = tx.type === 'income';
   const style = MAIN_COLORS[tx.mainCategory] ?? MAIN_COLORS.Want;
 
+  // Close when clicking outside on desktop
+  const cardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!confirmDel) return;
+    const handler = (e: MouseEvent | TouchEvent) => {
+      if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
+        setConfirmDel(false); setRevealed(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('touchstart', handler, { passive: true });
+    return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('touchstart', handler); };
+  }, [confirmDel]);
+
+  function onTouchStart(e: React.TouchEvent) {
+    isTouch.current = true;
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    const dx = touchStartX.current - e.changedTouches[0].clientX;
+    const dy = Math.abs(touchStartY.current - e.changedTouches[0].clientY);
+    if (dx > 48 && dy < 30) { setRevealed(true); setConfirmDel(false); }
+    if (dx < -48 && dy < 30) { setRevealed(false); setConfirmDel(false); }
+  }
+
   return (
-    <div onClick={() => setExp(v => !v)}
-      className="rounded-2xl flex overflow-hidden cursor-pointer active:scale-[0.99] transition-all"
-      style={{ background: 'var(--card)', border: '1.5px solid var(--border)', boxShadow: 'var(--shadow-card)' }}>
-      {/* Left accent stripe */}
-      <div className="w-[3px] self-stretch flex-shrink-0" style={{ background: style.text }} />
+    <div ref={cardRef} className="relative rounded-2xl" style={{ boxShadow: 'var(--shadow-card)' }}>
 
-      <div className="flex items-center gap-3 flex-1 px-3.5 py-3.5">
-        {/* Icon */}
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-          style={{ background: style.bg, border: `1.5px solid ${style.border}` }}>
-          {SUB_ICONS[tx.subCategory] ?? '💳'}
-        </div>
+      {/* ── Mobile swipe action buttons (behind card) ── */}
+      <div className="sm:hidden absolute inset-y-0 right-0 flex items-stretch rounded-r-2xl overflow-hidden"
+        style={{ opacity: revealed ? 1 : 0, transition: 'opacity 0.18s', pointerEvents: revealed ? 'auto' : 'none' }}>
+        {confirmDel ? (
+          <>
+            <button onClick={() => { onDelete(tx); setRevealed(false); setConfirmDel(false); }}
+              className="flex flex-col items-center justify-center gap-0.5 px-5 font-bold text-xs"
+              style={{ background: 'var(--expense)', color: '#fff' }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+              Confirm
+            </button>
+            <button onClick={() => setConfirmDel(false)}
+              className="flex flex-col items-center justify-center gap-0.5 px-4 font-bold text-xs"
+              style={{ background: 'var(--bg2)', color: 'var(--text3)' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              Cancel
+            </button>
+          </>
+        ) : (
+          <>
+            <button onClick={() => { setRevealed(false); onEdit(tx); }}
+              className="flex flex-col items-center justify-center gap-0.5 px-5 font-bold text-xs"
+              style={{ background: 'var(--accent)', color: '#fff' }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Edit
+            </button>
+            <button onClick={() => setConfirmDel(true)}
+              className="flex flex-col items-center justify-center gap-0.5 px-5 font-bold text-xs"
+              style={{ background: 'rgba(244,91,91,0.15)', color: 'var(--expense)' }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+              Delete
+            </button>
+          </>
+        )}
+      </div>
 
-        {/* Detail */}
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold leading-snug truncate" style={{ color: 'var(--text)', fontSize: 14, letterSpacing: '-0.01em' }}>
-            {tx.comment || tx.subCategory}
-          </p>
-          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-            <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 8, fontWeight: 700, background: style.bg, color: style.text, border: `1.5px solid ${style.border}` }}>
-              {isIncome ? tx.subCategory : tx.mainCategory === tx.subCategory ? tx.mainCategory : `${tx.mainCategory} · ${tx.subCategory}`}
-            </span>
-            {tx.source === 'manual' && (
-              <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 7, fontWeight: 700, background: 'var(--accent-bg)', color: 'var(--accent)', border: '1px solid var(--accent-border)' }}>manual</span>
+      {/* ── Card body ── */}
+      <div
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        onClick={() => { if (revealed) { setRevealed(false); return; } setExp(v => !v); }}
+        className="flex overflow-hidden cursor-pointer rounded-2xl"
+        style={{
+          background: 'var(--card)',
+          border: '1.5px solid var(--border)',
+          transform: revealed ? 'translateX(-148px)' : 'translateX(0)',
+          transition: 'transform 0.25s cubic-bezier(0.4,0,0.2,1)',
+        }}>
+        <div className="w-[3px] self-stretch flex-shrink-0" style={{ background: style.text }} />
+
+        <div className="flex items-center gap-3 flex-1 px-3.5 py-3.5 sm:px-4 sm:py-4">
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
+            style={{ background: style.bg, border: `1.5px solid ${style.border}` }}>
+            {SUB_ICONS[tx.subCategory] ?? '💳'}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold leading-snug truncate" style={{ color: 'var(--text)', fontSize: 14, letterSpacing: '-0.01em' }}>
+              {tx.comment || tx.subCategory}
+            </p>
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 8, fontWeight: 700, background: style.bg, color: style.text, border: `1.5px solid ${style.border}` }}>
+                {isIncome ? tx.subCategory : tx.mainCategory === tx.subCategory ? tx.mainCategory : `${tx.mainCategory} · ${tx.subCategory}`}
+              </span>
+            </div>
+            {exp && tx.comment && tx.comment !== tx.subCategory && (
+              <p style={{ fontSize: 12, marginTop: 6, lineHeight: 1.5, color: 'var(--text3)' }}>{tx.comment}</p>
             )}
           </div>
-          {exp && tx.comment && tx.comment !== tx.subCategory && (
-            <p style={{ fontSize: 12, marginTop: 6, lineHeight: 1.5, color: 'var(--text3)' }}>{tx.comment}</p>
-          )}
-        </div>
 
-        {/* Amount + date */}
-        <div className="flex flex-col items-end flex-shrink-0 gap-1">
-          <span style={{ fontSize: 14, fontWeight: 800, color: isIncome ? 'var(--income)' : 'var(--expense)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em' }}>
-            {isIncome ? '+' : '-'}{INR(tx.amount)}
-          </span>
-          <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500 }}>{fmtDateShort(tx.date)}</span>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Desktop: always-visible action buttons */}
+            {confirmDel ? (
+              <div className="hidden sm:flex items-center gap-1.5">
+                <button onClick={(e) => { e.stopPropagation(); onDelete(tx); setConfirmDel(false); }}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all active:scale-95"
+                  style={{ background: 'var(--expense)', color: '#fff' }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                  Sure?
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); setConfirmDel(false); }}
+                  className="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold transition-all active:scale-95"
+                  style={{ background: 'var(--bg2)', color: 'var(--text3)' }}>✕</button>
+              </div>
+            ) : (
+              <div className="hidden sm:flex items-center gap-1">
+                <button onClick={(e) => { e.stopPropagation(); onEdit(tx); }}
+                  className="w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-95 hover:scale-105"
+                  style={{ background: 'var(--accent-bg)', color: 'var(--accent)', border: '1px solid var(--accent-border)' }}
+                  title="Edit">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); setConfirmDel(true); }}
+                  className="w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-95 hover:scale-105"
+                  style={{ background: 'rgba(244,91,91,0.1)', color: 'var(--expense)', border: '1px solid rgba(244,91,91,0.2)' }}
+                  title="Delete">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                </button>
+              </div>
+            )}
+
+            <div className="flex flex-col items-end gap-1">
+              <span style={{ fontSize: 14, fontWeight: 800, color: isIncome ? 'var(--income)' : 'var(--expense)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em' }}>
+                {isIncome ? '+' : '-'}{INR(tx.amount)}
+              </span>
+              <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500 }}>{fmtDateShort(tx.date)}</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1345,6 +1451,7 @@ export default function TransactionsPage() {
   const [showAdd, setShowAdd]         = useState(false);
   const [showFilter, setShowFilter]   = useState(false);
   const [showExport, setShowExport]   = useState(false);
+  const [editTx, setEditTx]           = useState<EnrichedTx | null>(null);
   const [search, setSearch]           = useState('');
 
   const [filterType, setFilterType]   = useState<FilterType>('all');
@@ -1356,10 +1463,23 @@ export default function TransactionsPage() {
   const [page, setPage]               = useState(1);
   const PAGE_SIZE = 20;
 
+  // Load: localStorage first (instant), then merge Supabase (fresh)
   useEffect(() => {
+    const local = [...loadManualTransactions(), ...loadExcelTransactions()];
+    local.sort((a, b) => b.date.localeCompare(a.date));
     setExcelTxs(loadExcelTransactions());
     setManualTxs(loadManualTransactions());
     setHydrated(true);
+
+    fetchAllTransactions().then(remote => {
+      const localIds = new Set(local.map(l => l.id));
+      const remoteIds = new Set(remote.map(r => r.id));
+      const merged = [...remote, ...local.filter(l => !remoteIds.has(l.id))];
+      merged.sort((a, b) => b.date.localeCompare(a.date));
+      const manualKeys = new Set(loadManualTransactions().map(t => t.id));
+      setManualTxs(merged.filter(t => manualKeys.has(t.id) || !localIds.has(t.id)));
+      setExcelTxs(merged.filter(t => !manualKeys.has(t.id) && localIds.has(t.id)));
+    }).catch(() => {});
   }, []);
 
   const allRaw = useMemo(() => {
@@ -1397,7 +1517,6 @@ export default function TransactionsPage() {
   const visible  = filtered.slice(0, page * PAGE_SIZE);
   const hasMore  = visible.length < filtered.length;
 
-  // Stats from filtered set
   const income  = filtered.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const expense = filtered.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
   const net     = income - expense;
@@ -1415,6 +1534,20 @@ export default function TransactionsPage() {
   const handleAdded = useCallback((tx: LocalTransaction) => {
     setManualTxs(prev => [tx, ...prev]);
     setShowAdd(false);
+    createTransaction(tx).catch(() => {});
+  }, []);
+
+  const handleDelete = useCallback((tx: EnrichedTx) => {
+    setManualTxs(prev => prev.filter(t => t.id !== tx.id));
+    setExcelTxs(prev => prev.filter(t => t.id !== tx.id));
+    removeTransaction(tx.id).catch(() => {});
+  }, []);
+
+  const handleSaved = useCallback((updated: LocalTransaction) => {
+    setManualTxs(prev => prev.map(t => t.id === updated.id ? updated : t));
+    setExcelTxs(prev => prev.map(t => t.id === updated.id ? updated : t));
+    setEditTx(null);
+    editTransaction(updated).catch(() => {});
   }, []);
 
   const handleImport = useCallback((_fresh: LocalTransaction[]) => {
@@ -1436,10 +1569,10 @@ export default function TransactionsPage() {
   }, [dateFilter, customFrom, customTo]);
 
   return (
-    <div className="max-w-lg mx-auto pb-28 min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+    <div className="max-w-lg md:max-w-2xl lg:max-w-4xl xl:max-w-5xl mx-auto pb-28 min-h-screen px-0 md:px-4 lg:px-6" style={{ backgroundColor: 'var(--bg)' }}>
 
       {/* Header */}
-      <header className="px-5 pt-14 pb-6">
+      <header className="px-5 md:px-6 pt-10 md:pt-14 pb-6">
         <div className="flex items-start justify-between mb-5">
           <div>
             <h1 className="text-[28px] font-black tracking-tight leading-none" style={{ color: 'var(--text)', letterSpacing: '-0.03em' }}>Transactions</h1>
@@ -1541,8 +1674,8 @@ export default function TransactionsPage() {
                     {dayNet >= 0 ? '+' : ''}{INR(dayNet)}
                   </span>
                 </div>
-                <div className="space-y-2">
-                  {txs.map(tx => <TxCard key={tx.id} tx={tx} />)}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                  {txs.map(tx => <TxCard key={tx.id} tx={tx} onEdit={setEditTx} onDelete={handleDelete} />)}
                 </div>
               </div>
             );
@@ -1577,7 +1710,8 @@ export default function TransactionsPage() {
         </svg>
       </button>
 
-      {showAdd    && <AddModal onClose={() => setShowAdd(false)} onAdded={handleAdded} />}
+      {showAdd && <AddModal onClose={() => setShowAdd(false)} onAdded={handleAdded} />}
+      {editTx  && <EditTransactionModal transaction={editTx} onClose={() => setEditTx(null)} onSaved={handleSaved} />}
       {showExport && (
         <ExportModal
           onClose={() => setShowExport(false)}
