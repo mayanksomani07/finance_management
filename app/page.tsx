@@ -14,10 +14,10 @@ import { categorizeExpense, normaliseIncomeCategory } from '@/lib/categorize';
 import {
   loadExcelTransactions,
   loadManualTransactions,
-  clearAllTransactions, txFingerprint,
+  txFingerprint,
   type LocalTransaction,
 } from '@/lib/localStore';
-import { createTransaction, removeTransaction, editTransaction, importTransactions, fetchAllTransactions } from '@/lib/db';
+import { createTransaction, removeTransaction, editTransaction, importTransactions, fetchAllTransactions, clearAllTransactionsRemote } from '@/lib/db';
 import EditTransactionModal from '@/components/EditTransactionModal';
 import type { MainCategory } from '@/lib/categorize';
 
@@ -1188,7 +1188,7 @@ function ImportBanner({ onImport, onClear }: {
         <p className="text-sm font-bold mb-1" style={{ color: '#f45b5b' }}>Clear all transactions?</p>
         <p className="text-xs mb-3" style={{ color: 'var(--text3)' }}>Removes all imported and manually added data. Cannot be undone.</p>
         <div className="flex gap-2">
-          <button onClick={() => { clearAllTransactions(); onClear(); setShowClear(false); setStatus('idle'); setResultMsg(''); setDupeMsg(''); }}
+          <button onClick={() => { clearAllTransactionsRemote(); onClear(); setShowClear(false); setStatus('idle'); setResultMsg(''); setDupeMsg(''); }}
             className="flex-1 py-2.5 rounded-xl text-xs font-bold" style={{ background: '#f45b5b', color: '#fff' }}>
             Yes, Clear All
           </button>

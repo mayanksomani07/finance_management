@@ -46,6 +46,26 @@ export async function GET(req: NextRequest) {
   }
 }
 
+export async function DELETE() {
+  try {
+    const supabase = createServerClient();
+    const { error } = await supabase
+      .from('transactions')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000'); // delete all rows
+
+    if (error) {
+      console.error('DB error:', error);
+      return NextResponse.json({ success: false, error: 'Database error' }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error('Transactions DELETE error:', err);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();

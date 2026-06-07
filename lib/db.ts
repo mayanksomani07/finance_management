@@ -9,6 +9,7 @@ import {
   loadManualTransactions, saveManualTransaction,
   deleteTransaction as localDelete,
   updateTransaction as localUpdate,
+  clearAllTransactions,
   txFingerprint,
 } from './localStore';
 
@@ -175,4 +176,13 @@ export async function importTransactions(fresh: LocalTransaction[]): Promise<voi
     .catch(() => {
       // Offline — skip remote sync for now
     });
+}
+
+// ─── CLEAR ALL ────────────────────────────────────────────────────────────────
+
+export async function clearAllTransactionsRemote(): Promise<void> {
+  clearAllTransactions();
+  try {
+    await fetch('/api/transactions', { method: 'DELETE' });
+  } catch { /* offline — local already cleared */ }
 }
