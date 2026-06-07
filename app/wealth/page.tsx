@@ -322,7 +322,7 @@ function Divider({ label }: { label: string }) {
 
 const ASSET_COLORS = ['#6c63ff', '#00d9a6', '#f59e0b', '#f97316', '#8b5cf6', '#10b981', '#3b82f6', '#ff6b6b'];
 // Darker versions for light theme text/labels
-const ASSET_COLORS_DARK = ['#4338ca', '#0a7a58', '#92400e', '#c2410c', '#6d28d9', '#065f46', '#1d4ed8', '#b91c1c'];
+const ASSET_COLORS_DARK = ['#4338ca', '#0d9268', '#92400e', '#c2410c', '#6d28d9', '#065f46', '#1d4ed8', '#b91c1c'];
 
 interface AssetSlice { name: string; value: number; color: string; darkColor: string; }
 
@@ -893,6 +893,7 @@ export default function WealthPage() {
                     {allocationSlices.map((s) => {
                       const total = allocationSlices.reduce((a, x) => a + x.value, 0);
                       const pct = total > 0 ? (s.value / total) * 100 : 0;
+                      const labelColor = theme === 'light' ? s.darkColor : s.color;
                       return (
                         <div key={s.name}>
                           <div className="flex items-center justify-between mb-1">
@@ -902,7 +903,7 @@ export default function WealthPage() {
                             </div>
                             <div className="flex items-center gap-2">
                               <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text)' }}>{fmtShort(s.value)}</span>
-                              <span style={{ fontSize: 9, fontWeight: 700, color: s.color, minWidth: 32, textAlign: 'right' }}>{pct.toFixed(1)}%</span>
+                              <span style={{ fontSize: 9, fontWeight: 700, color: labelColor, minWidth: 32, textAlign: 'right' }}>{pct.toFixed(1)}%</span>
                             </div>
                           </div>
                           <div style={{ height: 3, borderRadius: 99, background: 'var(--border2)' }}>
