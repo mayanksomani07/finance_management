@@ -337,6 +337,8 @@ function AllocationDonut({ slices, theme }: { slices: AssetSlice[]; theme: 'dark
   if (total === 0) return null;
 
   const activeSlice = activeIndex !== null ? slices[activeIndex] : null;
+  // Use theme-appropriate color for each slice
+  const sliceColor = (s: AssetSlice) => theme === 'light' ? s.darkColor : s.color;
 
   return (
     <div className="rounded-2xl overflow-hidden" style={{
@@ -352,7 +354,7 @@ function AllocationDonut({ slices, theme }: { slices: AssetSlice[]; theme: 'dark
             <p className="text-[16px] font-extrabold tracking-tight" style={{ color: 'var(--text)', letterSpacing: '-0.02em' }}>Asset Allocation</p>
             <p className="text-[11px] font-medium mt-0.5" style={{ color: 'var(--text2)' }}>
               {activeSlice ? (
-                <span style={{ color: activeSlice.color }}>● {activeSlice.name}</span>
+                <span style={{ color: sliceColor(activeSlice) }}>● {activeSlice.name}</span>
               ) : 'By invested amount · hover to inspect'}
             </p>
           </div>
@@ -381,11 +383,11 @@ function AllocationDonut({ slices, theme }: { slices: AssetSlice[]; theme: 'dark
               {slices.map((s, i) => (
                 <Cell
                   key={i}
-                  fill={s.color}
+                  fill={sliceColor(s)}
                   opacity={activeIndex === null || activeIndex === i ? 1 : 0.3}
                   style={{
                     cursor: 'pointer',
-                    filter: activeIndex === i ? `drop-shadow(0 0 8px ${s.color}bb)` : 'none',
+                    filter: activeIndex === i ? `drop-shadow(0 0 8px ${sliceColor(s)}bb)` : 'none',
                     transition: 'opacity 0.15s, filter 0.15s',
                   }}
                 />
@@ -406,11 +408,11 @@ function AllocationDonut({ slices, theme }: { slices: AssetSlice[]; theme: 'dark
             <>
               <div style={{
                 width: 32, height: 32, borderRadius: '50%',
-                background: activeSlice.color + '20',
-                border: `2.5px solid ${activeSlice.color}80`,
+                background: sliceColor(activeSlice) + '20',
+                border: `2.5px solid ${sliceColor(activeSlice)}80`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
-                <div style={{ width: 12, height: 12, borderRadius: '50%', background: activeSlice.color, boxShadow: `0 0 8px ${activeSlice.color}` }} />
+                <div style={{ width: 12, height: 12, borderRadius: '50%', background: sliceColor(activeSlice), boxShadow: `0 0 8px ${sliceColor(activeSlice)}` }} />
               </div>
               <p style={{
                 fontSize: 10, fontWeight: 800, color: 'var(--text3)',
@@ -424,9 +426,9 @@ function AllocationDonut({ slices, theme }: { slices: AssetSlice[]; theme: 'dark
               }}>{fmtShort(activeSlice.value)}</p>
               <div style={{
                 fontSize: 12, fontWeight: 800,
-                color: activeSlice.color,
-                background: activeSlice.color + '1a',
-                border: `1.5px solid ${activeSlice.color}50`,
+                color: sliceColor(activeSlice),
+                background: sliceColor(activeSlice) + '1a',
+                border: `1.5px solid ${sliceColor(activeSlice)}50`,
                 padding: '2px 10px', borderRadius: 20, lineHeight: 1.5,
               }}>{((activeSlice.value / total) * 100).toFixed(1)}%</div>
             </>
@@ -446,7 +448,7 @@ function AllocationDonut({ slices, theme }: { slices: AssetSlice[]; theme: 'dark
           <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Breakdown</p>
         </div>
         {slices.map((s, i) => {
-          const labelColor = theme === 'light' ? s.darkColor : s.color;
+          const lc = sliceColor(s);
           const pct = ((s.value / total) * 100).toFixed(1);
           const isActive = activeIndex === i;
           return (
@@ -457,14 +459,14 @@ function AllocationDonut({ slices, theme }: { slices: AssetSlice[]; theme: 'dark
               style={{
                 display: 'flex', alignItems: 'center', gap: 10, minWidth: 0,
                 borderRadius: 14, padding: '11px 13px',
-                background: isActive ? s.color + '22' : s.color + '0d',
-                border: `1.5px solid ${isActive ? s.color + '80' : s.color + '28'}`,
+                background: isActive ? lc + '22' : lc + '0d',
+                border: `1.5px solid ${isActive ? lc + '80' : lc + '28'}`,
                 cursor: 'pointer',
                 transition: 'background 0.15s, border-color 0.15s, box-shadow 0.15s',
-                boxShadow: isActive ? `0 4px 16px ${s.color}22` : 'none',
+                boxShadow: isActive ? `0 4px 16px ${lc}22` : 'none',
               }}
             >
-              <div style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, backgroundColor: s.color, boxShadow: `0 0 6px ${s.color}80` }} />
+              <div style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, backgroundColor: lc, boxShadow: `0 0 6px ${lc}80` }} />
               <div style={{ minWidth: 0, flex: 1 }}>
                 <p style={{
                   fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
@@ -472,7 +474,7 @@ function AllocationDonut({ slices, theme }: { slices: AssetSlice[]; theme: 'dark
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 }}>{s.name}</p>
                 <p style={{ fontSize: 13, fontWeight: 900, color: 'var(--text)', letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums' }}>{fmtShort(s.value)}</p>
-                <p style={{ fontSize: 11, fontWeight: 800, color: labelColor, marginTop: 1 }}>{pct}%</p>
+                <p style={{ fontSize: 11, fontWeight: 800, color: lc, marginTop: 1 }}>{pct}%</p>
               </div>
             </div>
           );
@@ -898,7 +900,7 @@ export default function WealthPage() {
                         <div key={s.name}>
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-1.5">
-                              <div style={{ width: 7, height: 7, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+                              <div style={{ width: 7, height: 7, borderRadius: '50%', background: labelColor, flexShrink: 0 }} />
                               <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text2)' }}>{s.name}</span>
                             </div>
                             <div className="flex items-center gap-2">
@@ -907,7 +909,7 @@ export default function WealthPage() {
                             </div>
                           </div>
                           <div style={{ height: 3, borderRadius: 99, background: 'var(--border2)' }}>
-                            <div style={{ height: '100%', borderRadius: 99, width: `${pct}%`, background: s.color, transition: 'width 0.4s' }} />
+                            <div style={{ height: '100%', borderRadius: 99, width: `${pct}%`, background: labelColor, transition: 'width 0.4s' }} />
                           </div>
                         </div>
                       );
