@@ -1,21 +1,98 @@
 # FinTrack
 
-A mobile-first PWA for tracking Indian bank transactions. Auto-captures debits/credits from SMS (via iOS Shortcuts) and email (via Google Apps Script), with a clean dashboard showing monthly income, expenses, and savings.
+**FinTrack** is a personal finance tracker built for Indian bank accounts. It automatically captures every debit and credit — from SMS alerts on your phone and email notifications in your inbox — so you never have to enter transactions manually. Everything flows into a clean dashboard where you can see exactly where your money is going each month.
 
-Built with **Next.js 14**, **Supabase**, and **Tailwind CSS**.
+Beyond day-to-day spending, FinTrack also aggregates your investment portfolio across Zerodha (stocks & mutual funds), CoinDCX (crypto), and INDmoney (US stocks) into a single wealth view, giving you a complete picture of your net financial position.
+
+The app is installable on iPhone as a PWA and works offline — local data is kept in sync with the cloud database whenever connectivity is restored.
+
+---
+
+## What it does
+
+| | |
+|---|---|
+| **Auto-capture transactions** | Bank SMS messages (via iOS Shortcuts) and alert emails (via Gmail polling) are parsed and saved automatically — no manual entry needed. |
+| **Spending dashboard** | Monthly breakdown of income, expenses, and savings with category-level filtering. |
+| **Balance reconciliation** | Compare the app's running balance against your actual bank balance to catch discrepancies. |
+| **Portfolio aggregation** | Live holdings from Zerodha, CoinDCX, and INDmoney in one place. |
+| **Manual fallback** | Add, edit, or delete transactions yourself when auto-capture isn't available. |
+| **Excel import/export** | Bulk-upload historical transactions or export your data for external analysis. |
 
 ---
 
 ## Features
 
-- Auto-ingest bank SMS messages via iOS Shortcuts
-- Auto-ingest bank alert emails via Google Apps Script (polls Gmail every 15 min)
-- Manual transaction entry
-- Monthly income / expense / savings summary
-- Balance reconciliation against actual bank balance
-- Filter transactions by type (all / income / expense)
-- Installable as a PWA on iPhone
-- Optional live portfolio data: Zerodha (equities + MF), CoinDCX (crypto), INDmoney (US stocks)
+### Transactions
+
+Every debit and credit from your bank appears here, grouped by date with "Today" / "Yesterday" labels. Each entry shows the category (with emoji), a note, and the INR amount — with a daily P&L line so you can see net cash flow at a glance. The list loads 20 at a time with a **Load more** button showing how many remain.
+
+**Adding a transaction**
+A quick-entry form lets you log anything manually in seconds:
+- Toggle between **Expense** and **Income**
+- Enter an amount — a live INR preview formats it as you type
+- Pick a category from grouped pills (Needs / Wants / Investments for expenses; income has its own group)
+- Add an optional note and set the date (defaults to today)
+
+Duplicate detection runs on submit — if the same date + amount + category already exists, it warns you before saving.
+
+**Filtering**
+Four independent filters work together:
+| Filter | Options |
+|---|---|
+| **Type** | All · Expense · Income |
+| **Category** | Group-level (Need / Want / Investment) or individual sub-category pill |
+| **Date range** | Today · This Week · This Month · This Year · Custom range · All Time |
+| **Search** | Free-text across notes, sub-category, and category |
+
+An active filter count badge appears on the filter button, and a single **Reset** clears everything.
+
+---
+
+### Wealth
+
+A portfolio aggregator that pulls live data from multiple sources into one net-worth view:
+
+| Source | What's shown |
+|---|---|
+| **Zerodha Kite** | Equity stocks, ETFs (gold / silver / foreign) |
+| **Zerodha Coin** | Mutual funds (equity / gold / silver / debt) |
+| **CoinDCX** | Crypto holdings |
+| **INDmoney** | US stocks (via OAuth) |
+| **Manual entries** | Bank balance, cash, FDs, PF, bonds, credit card due, liabilities |
+
+The hero card shows **Net Worth** prominently with Assets, Liabilities, and Invested as sub-stats. Below it:
+- **Donut chart** — allocation by invested amount; hover to see asset name, value, and percentage
+- **P&L bar chart** — Invested vs Current side-by-side for each asset class (Equity, MF, Foreign, Gold, Silver, Crypto, Debt, PF) with an overall P&L figure
+
+---
+
+### Export to Excel
+
+An export modal lets you choose what to include:
+
+| Mode | Sheets generated |
+|---|---|
+| **Transactions** | Full ledger · Category breakdown · Monthly trend |
+| **Wealth** | Net worth · P&L per asset · Asset allocation |
+| **Both** | All six sheets combined |
+
+The file is generated client-side with colour-coded cells and conditional formatting bars — no server round-trip needed.
+
+---
+
+### Light / Dark Mode
+
+A toggle in the top-right header switches between light and dark themes. The preference is saved to `localStorage` and restored on next visit. The switch is instantaneous — CSS variables on the root element (`--bg`, `--card`, `--text`, etc.) flip, so every component updates without a page reload.
+
+---
+
+### Auto-capture & PWA
+
+- **iOS Shortcuts** — bank SMS alerts are forwarded to the app automatically (no copy-paste)
+- **Google Apps Script** — polls Gmail every 15 minutes for bank alert emails
+- **Installable PWA** — add to Home Screen on iPhone for a native-app feel
+- **Offline support** — transactions are cached in `localStorage` and sync to Supabase when connectivity returns
 
 ---
 
