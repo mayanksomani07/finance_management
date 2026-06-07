@@ -196,12 +196,49 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## Deployment (Vercel)
+## Deployment (Netlify)
 
-1. Push your repo to GitHub.
-2. Import it at [vercel.com/new](https://vercel.com/new).
-3. Add all four required environment variables in **Settings → Environment Variables**.
-4. Deploy. Your live URL will be `https://your-project.vercel.app`.
+### One-time setup
+
+1. **Push to GitHub** — if not already done:
+   ```bash
+   git remote add origin https://github.com/YOUR_USERNAME/finance-management.git
+   git push -u origin master
+   ```
+
+2. **Create Netlify account** — go to [netlify.com](https://netlify.com) and sign up with GitHub.
+
+3. **Import project**:
+   - Click **Add new site** → **Import an existing project** → **Deploy with GitHub**
+   - Select your `finance-management` repository
+
+4. **Configure build**:
+   - **Branch**: `master`
+   - **Build command**: `npm run build`
+   - **Publish directory**: `.next`
+
+5. **Add environment variables** — click **Show advanced** and add all keys from your `.env.local`:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_KEY`
+   - `API_SECRET_KEY`
+   - `ZERODHA_API_KEY`, `ZERODHA_API_SECRET` (if using)
+   - `COINDCX_API_KEY`, `COINDCX_API_SECRET` (if using)
+
+6. **Zerodha OAuth** (if you're using Kite Connect) — add this to [kite.trade/developers](https://kite.trade/developers) under **Redirect URLs**:
+   ```
+   https://your-project.netlify.app/api/kite/callback
+   ```
+
+7. Click **Deploy site** — wait 2–4 minutes. Your live URL will appear (e.g., `https://your-project.netlify.app`).
+
+### Auto-deploy
+
+Every push to `master` triggers a Netlify rebuild automatically. Just:
+
+```bash
+git add . && git commit -m "your changes" && git push
+```
 
 ---
 
@@ -213,7 +250,7 @@ Set this up to have bank SMS messages automatically sent to FinTrack.
 2. Set **Sender** to your bank's SMS sender ID (e.g. `SBI`, `SBIINB`, `GPAY`, `HDFCBK`)
 3. Enable **Run Immediately** (disable "Ask Before Running")
 4. Add action: **Get Contents of URL**
-   - URL: `https://your-project.vercel.app/api/sms`
+   - URL: `https://your-project.netlify.app/api/sms`
    - Method: `POST`
    - Headers: `Content-Type: application/json`
    - Body (JSON):
@@ -238,7 +275,7 @@ This polls your Gmail every 15 minutes for bank alert emails.
 2. Paste the following code:
 
 ```javascript
-const WEBHOOK_URL = 'https://your-project.vercel.app/api/email';
+const WEBHOOK_URL = 'https://your-project.netlify.app/api/email';
 const API_KEY = 'your-API_SECRET_KEY';
 const PROCESSED_LABEL = 'FinTrack-Processed';
 
@@ -332,4 +369,4 @@ function createTrigger() {
 | Styling | Tailwind CSS |
 | Charts | Recharts |
 | PWA | next-pwa |
-| Deployment | Vercel |
+| Deployment | Netlify |
