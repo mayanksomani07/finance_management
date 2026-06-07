@@ -8,13 +8,14 @@ export async function GET(req: NextRequest) {
     const from = searchParams.get('from');
     const to = searchParams.get('to');
     const limit = parseInt(searchParams.get('limit') || '50', 10);
+    const offset = parseInt(searchParams.get('offset') || '0', 10);
 
     const supabase = createServerClient();
     let query = supabase
       .from('transactions')
       .select('*')
       .order('transaction_at', { ascending: false })
-      .limit(limit);
+      .range(offset, offset + limit - 1);
 
     if (type === 'income' || type === 'expense') {
       query = query.eq('type', type);

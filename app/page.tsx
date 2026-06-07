@@ -1465,21 +1465,23 @@ export default function TransactionsPage() {
 
   // Load: localStorage first (instant), then merge Supabase (fresh)
   useEffect(() => {
-    const local = [...loadManualTransactions(), ...loadExcelTransactions()];
-    local.sort((a, b) => b.date.localeCompare(a.date));
-    setExcelTxs(loadExcelTransactions());
-    setManualTxs(loadManualTransactions());
-    setHydrated(true);
-
+    // Fetch from Supabase first; only fall back to localStorage if offline.
+    // Do NOT seed from localStorage before the fetch — it has mismatched IDs
+    // (local UUID vs Supabase UUID) that cause double-counting.
     fetchAllTransactions().then(remote => {
-      const localIds = new Set(local.map(l => l.id));
-      const remoteIds = new Set(remote.map(r => r.id));
-      const merged = [...remote, ...local.filter(l => !remoteIds.has(l.id))];
-      merged.sort((a, b) => b.date.localeCompare(a.date));
-      const manualKeys = new Set(loadManualTransactions().map(t => t.id));
-      setManualTxs(merged.filter(t => manualKeys.has(t.id) || !localIds.has(t.id)));
-      setExcelTxs(merged.filter(t => !manualKeys.has(t.id) && localIds.has(t.id)));
-    }).catch(() => {});
+      const remoteManual = remote.filter(r => r.source !== 'excel');
+      const remoteExcel  = remote.filter(r => r.source === 'excel');
+      remoteManual.sort((a, b) => b.date.localeCompare(a.date));
+      remoteExcel.sort((a, b) => b.date.localeCompare(a.date));
+      setManualTxs(remoteManual);
+      setExcelTxs(remoteExcel);
+    }).catch(() => {
+      // Offline fallback: use localStorage
+      setExcelTxs(loadExcelTransactions());
+      setManualTxs(loadManualTransactions());
+    }).finally(() => {
+      setHydrated(true);
+    });
   }, []);
 
   const allRaw = useMemo(() => {

@@ -12,6 +12,16 @@ import {
   txFingerprint,
 } from './localStore';
 
+function deduplicateByFingerprint(txs: LocalTransaction[]): LocalTransaction[] {
+  const seen = new Set<string>();
+  return txs.filter(t => {
+    const fp = txFingerprint(t);
+    if (seen.has(fp)) return false;
+    seen.add(fp);
+    return true;
+  });
+}
+
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 function toLocal(t: {
@@ -33,22 +43,27 @@ function toLocal(t: {
 // ─── READ ─────────────────────────────────────────────────────────────────────
 
 export async function fetchAllTransactions(): Promise<LocalTransaction[]> {
-  // Always seed UI from localStorage immediately (done by callers);
-  // this function fetches the remote copy and merges.
   try {
-    const res = await fetch('/api/transactions?limit=2000');
-    if (!res.ok) throw new Error('fetch failed');
-    const { transactions } = await res.json() as {
-      transactions: Array<{
-        id: string; transaction_at: string; amount: number;
-        type: 'income' | 'expense'; category: string | null;
-        description: string | null; source: string | null;
-      }>;
-    };
-    if (!Array.isArray(transactions)) throw new Error('bad shape');
-    return transactions.map(toLocal);
+    const all: LocalTransaction[] = [];
+    const PAGE = 1000;
+    let offset = 0;
+    while (true) {
+      const res = await fetch(`/api/transactions?limit=${PAGE}&offset=${offset}`);
+      if (!res.ok) throw new Error('fetch failed');
+      const { transactions } = await res.json() as {
+        transactions: Array<{
+          id: string; transaction_at: string; amount: number;
+          type: 'income' | 'expense'; category: string | null;
+          description: string | null; source: string | null;
+        }>;
+      };
+      if (!Array.isArray(transactions)) throw new Error('bad shape');
+      all.push(...transactions.map(toLocal));
+      if (transactions.length < PAGE) break;
+      offset += PAGE;
+    }
+    return deduplicateByFingerprint(all);
   } catch {
-    // Offline — return merged localStorage
     return [...loadManualTransactions(), ...loadExcelTransactions()];
   }
 }
@@ -133,19 +148,31 @@ export async function importTransactions(fresh: LocalTransaction[]): Promise<voi
   const merged = [...deduped, ...existing].sort((a, b) => b.date.localeCompare(a.date));
   saveExcelTransactions(merged);
 
-  // Sync each to Supabase in background — fire and forget
-  for (const tx of deduped) {
-    fetch('/api/transactions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        amount: tx.amount,
-        type: tx.type,
-        category: tx.category,
-        description: tx.comment || null,
-        transaction_at: tx.date,
-        source: 'excel',
-      }),
-    }).catch(() => {});
-  }
+  // Sync to Supabase — check existing remote rows first to avoid duplicates
+  fetch('/api/transactions?limit=10000')
+    .then(r => r.json())
+    .then(({ transactions: remote }) => {
+      if (!Array.isArray(remote)) return;
+      const remoteFps = new Set(remote.map((t: { transaction_at: string; amount: number; category: string | null; description: string | null }) =>
+        `${String(t.transaction_at).slice(0, 10)}|${t.amount}|${(t.category ?? '').trim().toLowerCase()}|${(t.description ?? '').trim().toLowerCase()}`
+      ));
+      const notInRemote = deduped.filter(t => !remoteFps.has(txFingerprint(t)));
+      for (const tx of notInRemote) {
+        fetch('/api/transactions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: tx.amount,
+            type: tx.type,
+            category: tx.category,
+            description: tx.comment || null,
+            transaction_at: tx.date,
+            source: 'excel',
+          }),
+        }).catch(() => {});
+      }
+    })
+    .catch(() => {
+      // Offline — skip remote sync for now
+    });
 }
