@@ -622,6 +622,7 @@ export default function WealthPage() {
   const [loadingMf, setLoadingMf] = useState(false);
   const [loadingCrypto, setLoadingCrypto] = useState(false);
   const [loadingIndmoney, setLoadingIndmoney] = useState(false);
+  const [oauthError, setOauthError] = useState<string | null>(null);
 
   const loadManual = useCallback(async () => {
     setLoadingManual(true);
@@ -665,9 +666,9 @@ export default function WealthPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('indmoney_connected') === '1') { loadIndmoney(); window.history.replaceState({}, '', window.location.pathname); }
-    if (params.get('indmoney_error')) { window.history.replaceState({}, '', window.location.pathname); }
+    if (params.get('indmoney_error')) { setOauthError(`IND Money: ${decodeURIComponent(params.get('indmoney_error')!)}`); window.history.replaceState({}, '', window.location.pathname); }
     if (params.get('kite_connected') === '1') { loadEquity(); loadMf(); window.history.replaceState({}, '', window.location.pathname); }
-    if (params.get('kite_error')) { window.history.replaceState({}, '', window.location.pathname); }
+    if (params.get('kite_error')) { setOauthError(`Zerodha: ${decodeURIComponent(params.get('kite_error')!)}`); window.history.replaceState({}, '', window.location.pathname); }
   }, [loadIndmoney, loadEquity, loadMf]);
 
   function mv(key: string) { return manual[key]?.value; }
@@ -828,6 +829,18 @@ export default function WealthPage() {
           <ThemeToggle />
         </div>
       </header>
+
+      {/* ── OAuth error banner ── */}
+      {oauthError && (
+        <div className="mx-4 md:mx-0 mb-3 px-4 py-3 rounded-2xl flex items-start gap-3" style={{ background: 'color-mix(in srgb, var(--expense) 12%, var(--card))', border: '1.5px solid color-mix(in srgb, var(--expense) 45%, var(--border))' }}>
+          <span className="text-base leading-none mt-0.5">⚠️</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold mb-0.5" style={{ color: 'var(--expense)' }}>Connection failed</p>
+            <p className="text-[11px] leading-relaxed break-words" style={{ color: 'var(--text2)' }}>{oauthError}</p>
+          </div>
+          <button onClick={() => setOauthError(null)} className="text-[11px] px-2 py-1 rounded-lg flex-shrink-0" style={{ color: 'var(--text2)', background: 'var(--bg2)', border: '1px solid var(--border)' }}>Dismiss</button>
+        </div>
+      )}
 
       {/* ── Net Worth Hero + Donut side-by-side, Bar chart below ── */}
       <div className="mx-4 md:mx-0 mb-4 space-y-4">

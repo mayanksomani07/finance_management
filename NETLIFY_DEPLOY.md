@@ -98,8 +98,19 @@ On the same settings page, click **"Show advanced"** → then **"New variable"**
 | `COINDCX_API_SECRET` | your CoinDCX API secret |
 | `ZERODHA_API_KEY` | your Zerodha API key |
 | `ZERODHA_API_SECRET` | your Zerodha API secret |
+| `NEXT_PUBLIC_APP_ENV` | `prod` |
 
 > Find the actual values in your local `.env.local` file. Never commit that file to GitHub.
+
+### Zerodha Kite Connect — CRITICAL one-time setup
+
+Zerodha only allows OAuth callbacks to URLs you've explicitly whitelisted. Without this step, the "Connect Zerodha" button will fail on the hosted site.
+
+1. Go to [kite.trade/developers](https://kite.trade/developers) → log in → click your app
+2. Under **Redirect URL**, add: `https://selffinancemanagement.netlify.app/api/kite/callback`
+3. Save the app settings
+
+Your local URL (`http://localhost:3000/api/kite/callback`) must also be listed if you want to connect locally. Both can coexist — just add both.
 
 ### To add variables later (if you forget now):
 
