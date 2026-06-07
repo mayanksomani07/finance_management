@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getUSStocks, isConnected } from '@/lib/indmoney';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const connected = await isConnected();
   if (!connected) {

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { buildKiteAuthUrl } from '@/lib/kite';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const authUrl = buildKiteAuthUrl('');

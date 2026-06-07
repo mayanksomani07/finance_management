@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { callMcpTool, isConnected } from '@/lib/indmoney';
 import { createServerClient } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 const ENV = process.env.NEXT_PUBLIC_APP_ENV ?? (process.env.NODE_ENV === 'production' ? 'prod' : 'dev');
 const INDMONEY_KEYS = [
   `_indmoney_access_token_${ENV}`,
