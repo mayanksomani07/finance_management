@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase';
+import { createServerClient } from '@/lib/supabase-server';
 
-// GET /api/balance — returns latest snapshot + reconciliation
-export async function GET() {
+async function getUser() {
   const supabase = createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return { supabase, user };
+}
 
-  // Latest snapshot
+export async function GET() {
+  const { supabase, user } = await getUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   const { data: snapshot } = await supabase
     .from('balance_snapshots')
     .select('*')
+    .eq('user_id', user.id)
     .order('snapshot_at', { ascending: false })
     .limit(1)
     .single();
@@ -17,11 +23,10 @@ export async function GET() {
     return NextResponse.json({ success: true, snapshot: null, computed: null, drift: null });
   }
 
-  // Sum all transactions created (inserted) on or after the snapshot was saved.
-  // Use created_at not transaction_at — so manually back-dated entries are still counted.
   const { data: txAfter } = await supabase
     .from('transactions')
     .select('amount, type')
+    .eq('user_id', user.id)
     .gte('created_at', snapshot.created_at);
 
   let delta = 0;
@@ -41,8 +46,10 @@ export async function GET() {
   });
 }
 
-// POST /api/balance — save a new snapshot
 export async function POST(req: NextRequest) {
+  const { supabase, user } = await getUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   const body = await req.json();
   const { actual_balance, note } = body;
 
@@ -50,16 +57,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'actual_balance required' }, { status: 400 });
   }
 
-  const supabase = createServerClient();
   const { data, error } = await supabase
     .from('balance_snapshots')
-    .insert({ actual_balance: Number(actual_balance), note: note ?? null })
+    .insert({ user_id: user.id, actual_balance: Number(actual_balance), note: note ?? null })
     .select()
     .single();
 
-  if (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-  }
+  if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 });
 
   return NextResponse.json({ success: true, snapshot: data });
 }

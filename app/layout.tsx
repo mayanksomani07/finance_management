@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import BottomNav from '@/components/BottomNav';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import { AuthProvider } from '@/components/AuthProvider';
 
 export const metadata: Metadata = {
   title: 'FinTrack',
@@ -34,8 +35,10 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen antialiased" style={{ backgroundColor: 'var(--bg)', color: 'var(--text)' }}>
         <ThemeProvider>
-          {children}
-          <BottomNav />
+          <AuthProvider>
+            {children}
+            <BottomNav />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

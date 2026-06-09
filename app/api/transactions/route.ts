@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase';
+import { createServerClient } from '@/lib/supabase-server';
+
+async function getUser(req: NextRequest) {
+  // createServerClient uses cookies() internally — works in route handlers
+  const supabase = createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return { supabase, user };
+}
 
 export async function GET(req: NextRequest) {
   try {
+    const { supabase, user } = await getUser(req);
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     const { searchParams } = new URL(req.url);
     const type = searchParams.get('type');
     const from = searchParams.get('from');
@@ -10,34 +20,23 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50', 10);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
-    const supabase = createServerClient();
     let query = supabase
       .from('transactions')
       .select('*')
+      .eq('user_id', user.id)
       .order('transaction_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (type === 'income' || type === 'expense') {
-      query = query.eq('type', type);
-    }
-
-    if (from) {
-      query = query.gte('transaction_at', from);
-    }
-
+    if (type === 'income' || type === 'expense') query = query.eq('type', type);
+    if (from) query = query.gte('transaction_at', from);
     if (to) {
-      // Add one day to include the full end date
       const toDate = new Date(to);
       toDate.setDate(toDate.getDate() + 1);
       query = query.lt('transaction_at', toDate.toISOString());
     }
 
     const { data, error } = await query;
-
-    if (error) {
-      console.error('DB error:', error);
-      return NextResponse.json({ success: false, error: 'Database error' }, { status: 500 });
-    }
+    if (error) return NextResponse.json({ success: false, error: 'Database error' }, { status: 500 });
 
     return NextResponse.json({ success: true, transactions: data });
   } catch (err) {
@@ -48,16 +47,15 @@ export async function GET(req: NextRequest) {
 
 export async function DELETE() {
   try {
-    const supabase = createServerClient();
+    const { supabase, user } = await getUser(new NextRequest('http://localhost'));
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     const { error } = await supabase
       .from('transactions')
       .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000'); // delete all rows
+      .eq('user_id', user.id);
 
-    if (error) {
-      console.error('DB error:', error);
-      return NextResponse.json({ success: false, error: 'Database error' }, { status: 500 });
-    }
+    if (error) return NextResponse.json({ success: false, error: 'Database error' }, { status: 500 });
 
     return NextResponse.json({ success: true });
   } catch (err) {
@@ -68,40 +66,26 @@ export async function DELETE() {
 
 export async function POST(req: NextRequest) {
   try {
+    const { supabase, user } = await getUser(req);
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     const body = await req.json();
-    const {
-      amount,
-      type,
-      category,
-      description,
-      transaction_at,
-      source,
-      account_last4,
-    } = body as {
-      amount?: number;
-      type?: string;
-      category?: string;
-      description?: string;
-      transaction_at?: string;
-      source?: string;
-      account_last4?: string;
+    const { amount, type, category, description, transaction_at, source, account_last4 } = body as {
+      amount?: number; type?: string; category?: string; description?: string;
+      transaction_at?: string; source?: string; account_last4?: string;
     };
 
-    if (!amount || typeof amount !== 'number' || amount <= 0) {
+    if (!amount || typeof amount !== 'number' || amount <= 0)
       return NextResponse.json({ success: false, error: 'Valid amount is required' }, { status: 400 });
-    }
-
-    if (type !== 'income' && type !== 'expense') {
+    if (type !== 'income' && type !== 'expense')
       return NextResponse.json({ success: false, error: 'type must be income or expense' }, { status: 400 });
-    }
 
-    const supabase = createServerClient();
     const { data, error } = await supabase
       .from('transactions')
       .insert({
+        user_id: user.id,
         transaction_at: transaction_at || new Date().toISOString(),
-        amount,
-        type,
+        amount, type,
         category: category || null,
         description: description || null,
         source: source || 'manual',
@@ -112,10 +96,7 @@ export async function POST(req: NextRequest) {
       .select()
       .single();
 
-    if (error) {
-      console.error('DB error:', error);
-      return NextResponse.json({ success: false, error: 'Database error' }, { status: 500 });
-    }
+    if (error) return NextResponse.json({ success: false, error: 'Database error' }, { status: 500 });
 
     return NextResponse.json({ success: true, transaction: data }, { status: 201 });
   } catch (err) {

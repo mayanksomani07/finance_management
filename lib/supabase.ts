@@ -1,38 +1,14 @@
-import { createClient } from '@supabase/supabase-js';
+// Re-exports for backward compatibility — prefer supabase-browser / supabase-server for new code
+export { getSupabaseBrowser as getSupabaseClient } from './supabase-browser';
+export { createAdminClient as createServerClient } from './supabase-server';
 
-// Client-side supabase client (anon key) — lazy singleton
-let _supabase: ReturnType<typeof createClient> | null = null;
-export function getSupabaseClient() {
-  if (!_supabase) {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    _supabase = createClient(url, key);
-  }
-  return _supabase;
-}
-
-// Keep named export for backward compat — lazy proxy
-export const supabase = new Proxy({} as ReturnType<typeof createClient>, {
+// Legacy named export used by old client-side code
+import { getSupabaseBrowser } from './supabase-browser';
+export const supabase = new Proxy({} as ReturnType<typeof getSupabaseBrowser>, {
   get(_target, prop) {
-    return getSupabaseClient()[prop as keyof ReturnType<typeof createClient>];
+    return getSupabaseBrowser()[prop as keyof ReturnType<typeof getSupabaseBrowser>];
   },
 });
-
-// Server-side supabase client (service key — only use in API routes)
-export function createServerClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceKey = process.env.SUPABASE_SERVICE_KEY!;
-  return createClient(url, serviceKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-    global: {
-      // Disable Next.js fetch cache so token reads always hit Supabase fresh
-      fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }),
-    },
-  });
-}
 
 export interface Transaction {
   id: string;
