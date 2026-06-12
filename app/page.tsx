@@ -19,7 +19,10 @@ import {
 } from '@/lib/localStore';
 import { createTransaction, removeTransaction, editTransaction, importTransactions, fetchAllTransactions, clearAllTransactionsRemote } from '@/lib/db';
 import EditTransactionModal from '@/components/EditTransactionModal';
+import DateRangePicker from '@/components/DateRangePicker';
 import type { MainCategory } from '@/lib/categorize';
+import { useAuth } from '@/components/AuthProvider';
+import { isSpecialUser, isWealthUser } from '@/lib/users';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -161,7 +164,7 @@ async function parseExcel(file: File): Promise<LocalTransaction[]> {
 
 // ─── Add Transaction Modal ────────────────────────────────────────────────────
 
-function AddModal({ onClose, onAdded }: { onClose: () => void; onAdded: (tx: LocalTransaction) => void }) {
+function AddModal({ onClose, onAdded, existingTxs }: { onClose: () => void; onAdded: (tx: LocalTransaction) => void; existingTxs: LocalTransaction[] }) {
   const [amount, setAmount]   = useState('');
   const [type, setType]       = useState<'income' | 'expense'>('expense');
   const [subCat, setSubCat]   = useState('Food');
@@ -200,8 +203,7 @@ function AddModal({ onClose, onAdded }: { onClose: () => void; onAdded: (tx: Loc
       source: 'manual',
     };
     const fp = txFingerprint(tx);
-    const allStored = [...loadManualTransactions(), ...loadExcelTransactions()];
-    if (allStored.some(t => txFingerprint(t) === fp)) {
+    if (existingTxs.some(t => txFingerprint(t) === fp)) {
       setError('This transaction already exists (same date, amount & category).');
       return;
     }
@@ -1034,16 +1036,12 @@ function FilterSheet({
               })}
             </div>
             {dateFilter === 'custom' && (
-              <div className="grid grid-cols-2 gap-2.5 mt-3">
-                {[{ label: 'From', val: customFrom, set: setCustomFrom }, { label: 'To', val: customTo, set: setCustomTo }].map(f => (
-                  <div key={f.label}>
-                    <p className="text-[9px] mb-1.5 font-extrabold tracking-[0.15em] uppercase" style={{ color: 'var(--text4)' }}>{f.label}</p>
-                    <input type="date" value={f.val} onChange={e => f.set(e.target.value)}
-                      className="w-full rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none"
-                      style={{ background: 'var(--bg2)', color: 'var(--text)', border: '1.5px solid var(--border)' }} />
-                  </div>
-                ))}
-              </div>
+              <DateRangePicker
+                from={customFrom}
+                to={customTo}
+                onFromChange={setCustomFrom}
+                onToChange={setCustomTo}
+              />
             )}
           </section>
 
@@ -1138,14 +1136,12 @@ function FilterSheet({
 
 // ─── Import Banner ─────────────────────────────────────────────────────────────
 
-function ImportBanner({ onImport, onClear }: {
+function ImportBanner({ onImport }: {
   onImport: (txs: LocalTransaction[], dupeCount: number) => void;
-  onClear: () => void;
 }) {
   const [status, setStatus]       = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const [resultMsg, setResultMsg] = useState('');
   const [dupeMsg, setDupeMsg]     = useState('');
-  const [showClear, setShowClear] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function handleFiles(files: FileList | null) {
@@ -1156,8 +1152,14 @@ function ImportBanner({ onImport, onClear }: {
       const all: LocalTransaction[] = [];
       for (const f of Array.from(files)) all.push(...await parseExcel(f));
 
-      const existing = loadExcelTransactions();
-      const existingFps = new Set(existing.map(txFingerprint));
+      // Dedup against Supabase (source of truth); fall back to localStorage if offline
+      let existingFps: Set<string>;
+      try {
+        const remoteAll = await fetchAllTransactions();
+        existingFps = new Set(remoteAll.map(txFingerprint));
+      } catch {
+        existingFps = new Set(loadExcelTransactions().map(txFingerprint));
+      }
       const fresh = all.filter(t => !existingFps.has(txFingerprint(t)));
       const dupeCount = all.length - fresh.length;
 
@@ -1182,72 +1184,40 @@ function ImportBanner({ onImport, onClear }: {
     }
   }
 
-  if (showClear) {
-    return (
-      <div className="mx-4 mb-4 rounded-2xl p-4" style={{ background: 'rgba(244,91,91,0.08)', border: '1px solid rgba(244,91,91,0.25)' }}>
-        <p className="text-sm font-bold mb-1" style={{ color: '#f45b5b' }}>Clear all transactions?</p>
-        <p className="text-xs mb-3" style={{ color: 'var(--text3)' }}>Removes all imported and manually added data. Cannot be undone.</p>
-        <div className="flex gap-2">
-          <button onClick={() => { clearAllTransactionsRemote(); onClear(); setShowClear(false); setStatus('idle'); setResultMsg(''); setDupeMsg(''); }}
-            className="flex-1 py-2.5 rounded-xl text-xs font-bold" style={{ background: '#f45b5b', color: '#fff' }}>
-            Yes, Clear All
-          </button>
-          <button onClick={() => setShowClear(false)}
-            className="flex-1 py-2.5 rounded-xl text-xs font-bold" style={{ background: 'var(--bg2)', color: 'var(--text3)' }}>
-            Cancel
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-4 mb-4 space-y-2">
+    <div className="mx-4 mb-4">
       <input ref={inputRef} type="file" accept=".xlsx,.xls" multiple className="hidden"
         onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
-
-      <div className="flex items-stretch gap-2">
-        {/* Import button */}
-        <button onClick={() => inputRef.current?.click()}
-          className="flex-1 flex items-center gap-3 px-4 py-3 rounded-2xl transition-all active:scale-[0.99]"
-          style={{ background: 'var(--card)', border: `1.5px ${status === 'done' ? 'solid rgba(16,217,160,0.4)' : 'dashed var(--border)'}` }}>
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: status === 'done' ? 'rgba(16,217,160,0.12)' : 'rgba(124,110,245,0.12)' }}>
-            {status === 'loading'
-              ? <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
-              : status === 'done'
-              ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10d9a0" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-              : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            }
-          </div>
-          <div className="text-left min-w-0">
-            <p className="text-xs font-bold" style={{ color: status === 'done' ? '#10d9a0' : 'var(--text)' }}>
-              {status === 'loading' ? 'Importing…'
-                : status === 'done' ? resultMsg
-                : status === 'error' ? 'Import failed — try again'
-                : 'Import Excel (.xlsx)'}
-            </p>
-            <p className="text-[9px]" style={{ color: 'var(--text4)' }}>
-              {status === 'done' && dupeMsg ? dupeMsg + ' · tap to import more'
-                : status === 'idle' ? 'Supports multiple files · duplicates auto-skipped'
-                : ''}
-            </p>
-          </div>
-        </button>
-
-        {/* Clear / trash button — same height as import btn */}
-        <button onClick={() => setShowClear(true)}
-          className="w-12 rounded-2xl flex items-center justify-center flex-shrink-0"
-          style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-          title="Clear all transactions">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text4)" strokeWidth="2" strokeLinecap="round">
-            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-          </svg>
-        </button>
-      </div>
+      <button onClick={() => inputRef.current?.click()}
+        className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all active:scale-[0.99]"
+        style={{ background: 'var(--card)', border: `1.5px ${status === 'done' ? 'solid rgba(16,217,160,0.4)' : 'dashed var(--border)'}` }}>
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: status === 'done' ? 'rgba(16,217,160,0.12)' : 'rgba(124,110,245,0.12)' }}>
+          {status === 'loading'
+            ? <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
+            : status === 'done'
+            ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10d9a0" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          }
+        </div>
+        <div className="text-left min-w-0">
+          <p className="text-xs font-bold" style={{ color: status === 'done' ? '#10d9a0' : 'var(--text)' }}>
+            {status === 'loading' ? 'Importing…'
+              : status === 'done' ? resultMsg
+              : status === 'error' ? 'Import failed — try again'
+              : 'Import Excel (.xlsx)'}
+          </p>
+          <p className="text-[9px]" style={{ color: 'var(--text4)' }}>
+            {status === 'done' && dupeMsg ? dupeMsg + ' · tap to import more'
+              : status === 'idle' ? 'Supports multiple files · duplicates auto-skipped'
+              : ''}
+          </p>
+        </div>
+      </button>
     </div>
   );
 }
+
 
 // ─── Transaction Card ──────────────────────────────────────────────────────────
 
@@ -1441,9 +1411,24 @@ function ActiveFilters({
   );
 }
 
+// ─── Session-storage helpers (persist filter state across section switches) ───
+
+function ssGet<T,>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback;
+  try { const v = sessionStorage.getItem(key); return v !== null ? JSON.parse(v) as T : fallback; } catch { return fallback; }
+}
+function ssSet(key: string, val: unknown) {
+  if (typeof window === 'undefined') return;
+  try { sessionStorage.setItem(key, JSON.stringify(val)); } catch {}
+}
+
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function TransactionsPage() {
+  const { user, signOut: doSignOut } = useAuth();
+  const canImportExcel = isSpecialUser(user?.email);
+  const showBottomNav = !!user?.email && isWealthUser(user.email);
+
   const [excelTxs, setExcelTxs]   = useState<LocalTransaction[]>([]);
   const [manualTxs, setManualTxs] = useState<LocalTransaction[]>([]);
   const [hydrated, setHydrated]   = useState(false);
@@ -1451,16 +1436,49 @@ export default function TransactionsPage() {
   const [showAdd, setShowAdd]         = useState(false);
   const [showFilter, setShowFilter]   = useState(false);
   const [showExport, setShowExport]   = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [clearError, setClearError] = useState('');
   const [editTx, setEditTx]           = useState<EnrichedTx | null>(null);
-  const [search, setSearch]           = useState('');
 
-  const [filterType, setFilterType]   = useState<FilterType>('all');
-  const [filterMain, setFilterMain]   = useState<FilterMain>('all');
-  const [filterSub, setFilterSub]     = useState('all');
-  const [dateFilter, setDateFilter]   = useState<DateFilter>('all');
-  const [customFrom, setCustomFrom]   = useState('');
-  const [customTo, setCustomTo]       = useState('');
-  const [page, setPage]               = useState(1);
+  // Setters that persist to sessionStorage synchronously — no effect timing issues.
+  // State initialises to defaults (SSR-safe); restored from sessionStorage after mount.
+  const [search, setSearchRaw]         = useState('');
+  const [filterType, setFilterTypeRaw] = useState<FilterType>('all');
+  const [filterMain, setFilterMainRaw] = useState<FilterMain>('all');
+  const [filterSub, setFilterSubRaw]   = useState('all');
+  const [dateFilter, setDateFilterRaw] = useState<DateFilter>('all');
+  const [customFrom, setCustomFromRaw] = useState('');
+  const [customTo, setCustomToRaw]     = useState('');
+  const [page, setPageRaw]             = useState(1);
+
+  const setSearch     = useCallback((v: string)      => { ssSet('tx_search',     v); setSearchRaw(v);     }, []);
+  const setFilterType = useCallback((v: FilterType)  => { ssSet('tx_filterType', v); setFilterTypeRaw(v); }, []);
+  const setFilterMain = useCallback((v: FilterMain)  => { ssSet('tx_filterMain', v); setFilterMainRaw(v); }, []);
+  const setFilterSub  = useCallback((v: string)      => { ssSet('tx_filterSub',  v); setFilterSubRaw(v);  }, []);
+  const setDateFilter = useCallback((v: DateFilter)  => { ssSet('tx_dateFilter', v); setDateFilterRaw(v); }, []);
+  const setCustomFrom = useCallback((v: string)      => { ssSet('tx_customFrom', v); setCustomFromRaw(v); }, []);
+  const setCustomTo   = useCallback((v: string)      => { ssSet('tx_customTo',   v); setCustomToRaw(v);   }, []);
+  const setPage       = useCallback((v: number | ((p: number) => number)) => {
+    setPageRaw(prev => {
+      const next = typeof v === 'function' ? v(prev) : v;
+      ssSet('tx_page', next);
+      return next;
+    });
+  }, []);
+
+  // Restore from sessionStorage after first mount (avoids SSR hydration mismatch)
+  useEffect(() => {
+    setSearch(ssGet('tx_search', ''));
+    setFilterType(ssGet('tx_filterType', 'all'));
+    setFilterMain(ssGet('tx_filterMain', 'all'));
+    setFilterSub(ssGet('tx_filterSub', 'all'));
+    setDateFilter(ssGet('tx_dateFilter', 'all'));
+    setCustomFrom(ssGet('tx_customFrom', ''));
+    setCustomTo(ssGet('tx_customTo', ''));
+    setPageRaw(ssGet('tx_page', 1));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const PAGE_SIZE = 20;
 
   // Load: localStorage first (instant), then merge Supabase (fresh)
@@ -1469,8 +1487,12 @@ export default function TransactionsPage() {
     // Do NOT seed from localStorage before the fetch — it has mismatched IDs
     // (local UUID vs Supabase UUID) that cause double-counting.
     fetchAllTransactions().then(remote => {
-      const remoteManual = remote.filter(r => r.source !== 'excel');
-      const remoteExcel  = remote.filter(r => r.source === 'excel');
+      // Merge any localStorage-only rows (offline-added txs not yet in Supabase)
+      const remoteFps = new Set(remote.map(txFingerprint));
+      const localManual = loadManualTransactions().filter(t => !remoteFps.has(txFingerprint(t)));
+      const merged = [...remote, ...localManual];
+      const remoteManual = merged.filter(r => r.source !== 'excel');
+      const remoteExcel  = merged.filter(r => r.source === 'excel');
       remoteManual.sort((a, b) => b.date.localeCompare(a.date));
       remoteExcel.sort((a, b) => b.date.localeCompare(a.date));
       setManualTxs(remoteManual);
@@ -1496,7 +1518,7 @@ export default function TransactionsPage() {
     dateFilter !== 'all', filterType !== 'all', filterMain !== 'all', filterSub !== 'all',
   ].filter(Boolean).length;
 
-  useEffect(() => { setPage(1); }, [search, filterType, filterMain, filterSub, dateFilter, customFrom, customTo]);
+  useEffect(() => { setPage(1); }, [search, filterType, filterMain, filterSub, dateFilter, customFrom, customTo, setPage]);
 
   const filtered = useMemo(() => {
     const range = dateRangeFor(dateFilter, { from: customFrom, to: customTo });
@@ -1536,24 +1558,56 @@ export default function TransactionsPage() {
   const handleAdded = useCallback((tx: LocalTransaction) => {
     setManualTxs(prev => [tx, ...prev]);
     setShowAdd(false);
-    createTransaction(tx).catch(() => {});
+    createTransaction(tx).then(() => {
+      // Re-fetch to replace the client UUID with the canonical server ID
+      fetchAllTransactions().then(remote => {
+        setManualTxs(remote.filter(r => r.source !== 'excel'));
+        setExcelTxs(remote.filter(r => r.source === 'excel'));
+      }).catch(() => {});
+    }).catch(() => {
+      // Server rejected — roll back optimistic add
+      fetchAllTransactions().then(remote => {
+        setManualTxs(remote.filter(r => r.source !== 'excel'));
+        setExcelTxs(remote.filter(r => r.source === 'excel'));
+      }).catch(() => {});
+    });
   }, []);
 
   const handleDelete = useCallback((tx: EnrichedTx) => {
+    // Optimistically remove from UI
     setManualTxs(prev => prev.filter(t => t.id !== tx.id));
     setExcelTxs(prev => prev.filter(t => t.id !== tx.id));
-    removeTransaction(tx.id).catch(() => {});
+    removeTransaction(tx.id).catch(() => {
+      // Server delete failed — roll back React state
+      fetchAllTransactions().then(remote => {
+        setManualTxs(remote.filter(r => r.source !== 'excel'));
+        setExcelTxs(remote.filter(r => r.source === 'excel'));
+      }).catch(() => {});
+    });
   }, []);
 
   const handleSaved = useCallback((updated: LocalTransaction) => {
+    // Optimistically update UI
     setManualTxs(prev => prev.map(t => t.id === updated.id ? updated : t));
     setExcelTxs(prev => prev.map(t => t.id === updated.id ? updated : t));
     setEditTx(null);
-    editTransaction(updated).catch(() => {});
+    editTransaction(updated).catch(() => {
+      // Server rejected the edit — roll back React state to keep UI consistent with DB
+      fetchAllTransactions().then(remote => {
+        setManualTxs(remote.filter(r => r.source !== 'excel'));
+        setExcelTxs(remote.filter(r => r.source === 'excel'));
+      }).catch(() => {});
+    });
   }, []);
 
   const handleImport = useCallback((_fresh: LocalTransaction[]) => {
-    setExcelTxs(loadExcelTransactions());
+    // Re-fetch from Supabase to get canonical IDs assigned by the server
+    fetchAllTransactions().then(remote => {
+      setExcelTxs(remote.filter(r => r.source === 'excel'));
+      setManualTxs(remote.filter(r => r.source !== 'excel'));
+    }).catch(() => {
+      setExcelTxs(loadExcelTransactions());
+    });
   }, []);
 
   const handleClear = useCallback(() => {
@@ -1571,7 +1625,7 @@ export default function TransactionsPage() {
   }, [dateFilter, customFrom, customTo]);
 
   return (
-    <div className="max-w-lg md:max-w-2xl lg:max-w-4xl xl:max-w-5xl mx-auto pb-28 min-h-screen px-0 md:px-4 lg:px-6" style={{ backgroundColor: 'var(--bg)' }}>
+    <div className={`max-w-lg md:max-w-2xl lg:max-w-4xl xl:max-w-5xl mx-auto ${showBottomNav ? 'pb-28' : 'pb-10'} min-h-screen px-0 md:px-4 lg:px-6`} style={{ backgroundColor: 'var(--bg)' }}>
 
       {/* Header */}
       <header className="px-5 md:px-6 pt-10 md:pt-14 pb-6">
@@ -1586,9 +1640,47 @@ export default function TransactionsPage() {
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold active:scale-95 transition-transform"
               style={{ background: 'var(--accent-bg)', color: 'var(--accent)', border: '1.5px solid var(--accent-border)' }}
             >
-              <span>📤</span><span>Export</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <span>Export</span>
             </button>
+            {/* Add transaction */}
+            <button
+              onClick={() => setShowAdd(true)}
+              className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-95 transition-all"
+              style={{ background: 'var(--accent-bg)', border: '1.5px solid var(--accent-border)', color: 'var(--accent)' }}
+              title="Add transaction"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+            </button>
+            {hydrated && allTxs.length > 0 && (
+              <button
+                onClick={() => setShowClearConfirm(true)}
+                className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-95 transition-all"
+                style={{ background: 'rgba(244,91,91,0.08)', border: '1.5px solid rgba(244,91,91,0.2)', color: 'var(--expense)' }}
+                title="Clear all transactions"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                </svg>
+              </button>
+            )}
             <ThemeToggle />
+            {!showBottomNav && (
+              <button
+                onClick={() => setShowSignOutConfirm(true)}
+                className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-95 transition-all"
+                style={{ background: 'var(--bg2)', border: '1.5px solid var(--border)', color: 'var(--text2)' }}
+                title="Sign out"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                  <polyline points="16 17 21 12 16 7"/>
+                  <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+              </button>
+            )}
           </div>
         </div>
 
@@ -1641,8 +1733,8 @@ export default function TransactionsPage() {
         activeCount={activeFilterCount}
       />
 
-      {/* Import Excel */}
-      <ImportBanner onImport={handleImport} onClear={handleClear} />
+      {/* Import Excel — only for the designated user */}
+      {canImportExcel && <ImportBanner onImport={handleImport} />}
 
       {/* Charts */}
       {hydrated && <SpendCharts txs={filtered} />}
@@ -1661,7 +1753,9 @@ export default function TransactionsPage() {
               {allTxs.length === 0 ? 'No transactions yet' : 'No results found'}
             </p>
             <p className="text-xs mt-1" style={{ color: 'var(--text4)' }}>
-              {allTxs.length === 0 ? 'Import an Excel file or tap + to add manually' : 'Try adjusting your filters'}
+              {allTxs.length === 0
+                ? canImportExcel ? 'Import an Excel file or tap + to add manually' : 'Tap + to add your first transaction'
+                : 'Try adjusting your filters'}
             </p>
           </div>
         ) : (
@@ -1703,17 +1797,74 @@ export default function TransactionsPage() {
         )}
       </div>
 
-      {/* FAB */}
-      <button onClick={() => setShowAdd(true)}
-        className="fixed bottom-24 right-5 w-14 h-14 rounded-2xl flex items-center justify-center text-white active:scale-90 transition-all z-40"
-        style={{ background: 'linear-gradient(135deg, var(--accent), #8b5cf6)', boxShadow: '0 4px 20px rgba(79,70,229,0.5)' }}>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
-          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-        </svg>
-      </button>
-
-      {showAdd && <AddModal onClose={() => setShowAdd(false)} onAdded={handleAdded} />}
+      {showAdd && <AddModal onClose={() => setShowAdd(false)} onAdded={handleAdded} existingTxs={allRaw} />}
       {editTx  && <EditTransactionModal transaction={editTx} onClose={() => setEditTx(null)} onSaved={handleSaved} />}
+      {showClearConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4"
+          style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }}
+          onClick={() => setShowClearConfirm(false)}>
+          <div className="w-full max-w-sm mx-auto rounded-t-3xl sm:rounded-3xl p-6"
+            style={{ background: 'var(--card)', border: '1px solid var(--border)', boxShadow: '0 -16px 64px rgba(0,0,0,0.35)', marginBottom: '64px' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{ background: 'rgba(244,91,91,0.12)', border: '1.5px solid rgba(244,91,91,0.25)' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f45b5b" strokeWidth="2" strokeLinecap="round">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+              </svg>
+            </div>
+            <h3 className="text-base font-extrabold text-center mb-1" style={{ color: 'var(--text)' }}>Clear all transactions?</h3>
+            <p className="text-xs text-center mb-6" style={{ color: 'var(--text3)' }}>This will permanently remove all {allTxs.length} transaction{allTxs.length !== 1 ? 's' : ''}. Cannot be undone.</p>
+            {clearError && <p className="text-xs text-center mb-3 font-semibold" style={{ color: '#f45b5b' }}>{clearError}</p>}
+            <div className="flex gap-2.5">
+              <button onClick={() => { setShowClearConfirm(false); setClearError(''); }}
+                className="flex-1 py-3 rounded-2xl text-sm font-bold transition-all active:scale-[0.98]"
+                style={{ background: 'var(--bg2)', color: 'var(--text2)', border: '1.5px solid var(--border)' }}>
+                Cancel
+              </button>
+              <button onClick={async () => { try { await clearAllTransactionsRemote(); handleClear(); setShowClearConfirm(false); setClearError(''); } catch { setClearError('Failed to clear. Check your connection and try again.'); } }}
+                className="flex-1 py-3 rounded-2xl text-sm font-extrabold transition-all active:scale-[0.98]"
+                style={{ background: 'linear-gradient(135deg, #f45b5b, #e03030)', color: '#fff', boxShadow: '0 4px 16px rgba(244,91,91,0.35)' }}>
+                Clear All
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Sign-out confirm sheet — for non-wealth users (wealth users use BottomNav confirm) */}
+      {showSignOutConfirm && (
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center sm:p-4"
+          style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }}
+          onClick={() => setShowSignOutConfirm(false)}>
+          <div className="w-full max-w-sm mx-auto rounded-t-3xl sm:rounded-3xl p-6"
+            style={{ background: 'var(--card)', border: '1px solid var(--border)', boxShadow: '0 -16px 64px rgba(0,0,0,0.35)', paddingBottom: 'max(24px, env(safe-area-inset-bottom, 24px))' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{ background: 'rgba(108,99,255,0.10)', border: '1.5px solid rgba(108,99,255,0.22)' }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </div>
+            <h3 className="text-base font-extrabold text-center mb-1" style={{ color: 'var(--text)' }}>Sign out?</h3>
+            <p className="text-xs text-center mb-6" style={{ color: 'var(--text3)' }}>
+              You&apos;ll be returned to the login screen. Your data is safely saved.
+            </p>
+            <div className="flex gap-2.5">
+              <button onClick={() => setShowSignOutConfirm(false)}
+                className="flex-1 py-3 rounded-2xl text-sm font-bold transition-all active:scale-[0.98]"
+                style={{ background: 'var(--bg2)', color: 'var(--text2)', border: '1.5px solid var(--border)' }}>
+                Cancel
+              </button>
+              <button onClick={doSignOut}
+                className="flex-1 py-3 rounded-2xl text-sm font-extrabold transition-all active:scale-[0.98]"
+                style={{ background: 'linear-gradient(135deg, var(--accent), #8b5cf6)', color: '#fff', boxShadow: '0 4px 16px rgba(108,99,255,0.35)' }}>
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showExport && (
         <ExportModal
           onClose={() => setShowExport(false)}

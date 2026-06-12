@@ -72,12 +72,9 @@ export async function fetchAllTransactions(): Promise<LocalTransaction[]> {
 // ─── CREATE ───────────────────────────────────────────────────────────────────
 
 export async function createTransaction(tx: LocalTransaction): Promise<void> {
-  // 1. Write to localStorage instantly (optimistic)
-  saveManualTransaction(tx);
-
-  // 2. Try Supabase
+  let res: Response;
   try {
-    const res = await fetch('/api/transactions', {
+    res = await fetch('/api/transactions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -89,40 +86,53 @@ export async function createTransaction(tx: LocalTransaction): Promise<void> {
         source: tx.source ?? 'manual',
       }),
     });
-    if (res.ok) {
-      const { transaction } = await res.json() as { transaction: { id: string } };
-      // Update local id to match Supabase id so deletes/edits stay in sync
-      if (transaction?.id && transaction.id !== tx.id) {
-        const manuals = loadManualTransactions().map(t =>
-          t.id === tx.id ? { ...t, id: transaction.id } : t
-        );
-        localStorage.setItem('manual_transactions', JSON.stringify(manuals));
-      }
+  } catch {
+    // Network error (offline) — save locally so the UI isn't empty; syncs on next load
+    saveManualTransaction(tx);
+    return;
+  }
+
+  if (res.ok) {
+    const { transaction } = await res.json() as { transaction: { id: string } };
+    // Save with the real Supabase ID so subsequent edits/deletes stay in sync.
+    // Also remove the optimistic entry (which used the client-generated UUID) by
+    // explicitly deleting it before saving the canonical version.
+    const canonical = transaction?.id ? { ...tx, id: transaction.id } : tx;
+    if (transaction?.id && transaction.id !== tx.id) {
+      localDelete(tx.id);
     }
-  } catch { /* offline — local only */ }
+    saveManualTransaction(canonical);
+    return;
+  }
+
+  // HTTP error (auth failure, validation, etc.) — do NOT save locally with a bad ephemeral ID
+  throw new Error(`Create failed: ${res.status}`);
 }
 
 // ─── DELETE ───────────────────────────────────────────────────────────────────
 
 export async function removeTransaction(id: string): Promise<void> {
-  // 1. Local immediately
-  localDelete(id);
-
-  // 2. Supabase
+  let res: Response;
   try {
-    await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
-  } catch { /* offline — local already updated */ }
+    res = await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
+  } catch (err) {
+    // Network error (offline) — delete locally; server will be stale until next sync
+    localDelete(id);
+    throw err;
+  }
+  // 404 means already gone — treat as success
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`Delete failed: ${res.status}`);
+  }
+  localDelete(id);
 }
 
 // ─── UPDATE ───────────────────────────────────────────────────────────────────
 
 export async function editTransaction(tx: LocalTransaction): Promise<void> {
-  // 1. Local immediately
-  localUpdate(tx);
-
-  // 2. Supabase
+  let res: Response;
   try {
-    await fetch(`/api/transactions/${tx.id}`, {
+    res = await fetch(`/api/transactions/${tx.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -133,7 +143,15 @@ export async function editTransaction(tx: LocalTransaction): Promise<void> {
         transaction_at: tx.date,
       }),
     });
-  } catch { /* offline */ }
+  } catch (err) {
+    // Network error (offline) — persist edit locally anyway; server syncs on next successful call
+    localUpdate(tx);
+    throw err;
+  }
+  if (!res.ok) {
+    throw new Error(`Edit failed: ${res.status}`);
+  }
+  localUpdate(tx);
 }
 
 // ─── IMPORT (bulk excel) ──────────────────────────────────────────────────────
@@ -141,25 +159,29 @@ export async function editTransaction(tx: LocalTransaction): Promise<void> {
 export async function importTransactions(fresh: LocalTransaction[]): Promise<void> {
   if (fresh.length === 0) return;
 
-  // Persist locally
   const existing = loadExcelTransactions();
   const existingFps = new Set(existing.map(txFingerprint));
   const deduped = fresh.filter(t => !existingFps.has(txFingerprint(t)));
   if (deduped.length === 0) return;
-  const merged = [...deduped, ...existing].sort((a, b) => b.date.localeCompare(a.date));
-  saveExcelTransactions(merged);
 
-  // Sync to Supabase — check existing remote rows first to avoid duplicates
-  fetch('/api/transactions?limit=10000')
-    .then(r => r.json())
-    .then(({ transactions: remote }) => {
-      if (!Array.isArray(remote)) return;
-      const remoteFps = new Set(remote.map((t: { transaction_at: string; amount: number; category: string | null; description: string | null }) =>
-        `${String(t.transaction_at).slice(0, 10)}|${t.amount}|${(t.category ?? '').trim().toLowerCase()}|${(t.description ?? '').trim().toLowerCase()}`
-      ));
-      const notInRemote = deduped.filter(t => !remoteFps.has(txFingerprint(t)));
-      for (const tx of notInRemote) {
-        fetch('/api/transactions', {
+  // Sync to Supabase first — check existing remote rows to avoid duplicates
+  try {
+    const r = await fetch('/api/transactions?limit=10000');
+    if (!r.ok) throw new Error('fetch failed');
+    const { transactions: remote } = await r.json() as {
+      transactions: Array<{ transaction_at: string; amount: number; category: string | null; description: string | null }>;
+    };
+    if (!Array.isArray(remote)) throw new Error('bad shape');
+
+    const remoteFps = new Set(remote.map(t =>
+      `${String(t.transaction_at).slice(0, 10)}|${t.amount}|${(t.category ?? '').trim().toLowerCase()}|${(t.description ?? '').trim().toLowerCase()}`
+    ));
+    const notInRemote = deduped.filter(t => !remoteFps.has(txFingerprint(t)));
+
+    const CHUNK = 50;
+    for (let i = 0; i < notInRemote.length; i += CHUNK) {
+      await Promise.all(notInRemote.slice(i, i + CHUNK).map(async tx => {
+        const res = await fetch('/api/transactions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -170,19 +192,23 @@ export async function importTransactions(fresh: LocalTransaction[]): Promise<voi
             transaction_at: tx.date,
             source: 'excel',
           }),
-        }).catch(() => {});
-      }
-    })
-    .catch(() => {
-      // Offline — skip remote sync for now
-    });
+        });
+        if (!res.ok) console.error(`Import failed for tx ${tx.id}: ${res.status}`);
+      }));
+    }
+  } catch {
+    // Offline or Supabase unreachable — fall through to local-only save
+  }
+
+  // Write to localStorage after Supabase attempt (source of truth is DB when online)
+  const merged = [...deduped, ...existing].sort((a, b) => b.date.localeCompare(a.date));
+  saveExcelTransactions(merged);
 }
 
 // ─── CLEAR ALL ────────────────────────────────────────────────────────────────
 
 export async function clearAllTransactionsRemote(): Promise<void> {
+  const res = await fetch('/api/transactions', { method: 'DELETE' });
+  if (!res.ok) throw new Error(`Clear failed: ${res.status}`);
   clearAllTransactions();
-  try {
-    await fetch('/api/transactions', { method: 'DELETE' });
-  } catch { /* offline — local already cleared */ }
 }

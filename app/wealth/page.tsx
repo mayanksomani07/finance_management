@@ -1,11 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useTheme } from '@/components/ThemeProvider';
 import ExportModal from '@/components/ExportModal';
 import type { WealthSnapshot } from '@/lib/exportExcel';
-import { loadExcelTransactions, loadManualTransactions } from '@/lib/localStore';
+import { fetchAllTransactions } from '@/lib/db';
+import type { LocalTransaction } from '@/lib/localStore';
+import { useAuth } from '@/components/AuthProvider';
+import { isWealthUser } from '@/lib/users';
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -100,14 +104,20 @@ function EditableField({
   async function save() {
     if (!val) return;
     setSaving(true);
-    await fetch('/api/wealth/manual', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: fieldKey, value: parseFloat(val), note: noteVal }),
-    });
-    setSaving(false);
-    setEditing(false);
-    onSaved();
+    try {
+      const res = await fetch('/api/wealth/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: fieldKey, value: parseFloat(val), note: noteVal }),
+      });
+      if (!res.ok) throw new Error('save failed');
+      setEditing(false);
+      onSaved();
+    } catch {
+      // leave editing open so user can retry
+    } finally {
+      setSaving(false);
+    }
   }
 
   const showLive = liveValue !== undefined && liveValue !== value;
@@ -613,12 +623,21 @@ function PnlBarChart({ bars }: { bars: PnlBar[] }) {
 
 export default function WealthPage() {
   const { theme } = useTheme();
+  const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (user && !isWealthUser(user.email)) {
+      router.replace('/');
+    }
+  }, [user, router]);
   const [manual, setManual] = useState<Record<string, ManualData>>({});
   const [equityLive, setEquityLive] = useState<ZerodhaLiveData | null>(null);
   const [mfLive, setMfLive] = useState<ZerodhaLiveData | null>(null);
   const [cryptoLive, setCryptoLive] = useState<CoinLiveData | null>(null);
   const [indmoneyLive, setIndmoneyLive] = useState<IndMoneyLiveData | null>(null);
   const [showExport, setShowExport] = useState(false);
+  const [exportTxs, setExportTxs] = useState<LocalTransaction[]>([]);
   const [loadingManual, setLoadingManual] = useState(true);
   const [loadingEquity, setLoadingEquity] = useState(false);
   const [loadingMf, setLoadingMf] = useState(false);
@@ -704,7 +723,9 @@ export default function WealthPage() {
       put('mf_total_invested', result.mf.total.invested);
       put('mf_total_current', result.mf.total.current);
     }
-    await Promise.all(saves);
+    const results = await Promise.all(saves);
+    const failed = results.filter(r => !r.ok).length;
+    if (failed > 0) console.error(`saveXlsxResult: ${failed}/${saves.length} saves failed`);
     loadManual();
   }
 
@@ -822,7 +843,15 @@ export default function WealthPage() {
         </div>
         <div className="mt-1 flex items-center gap-2">
           <button
-            onClick={() => setShowExport(true)}
+            onClick={async () => {
+  try {
+    setExportTxs(await fetchAllTransactions());
+  } catch {
+    const { loadManualTransactions, loadExcelTransactions } = await import('@/lib/localStore');
+    setExportTxs([...loadManualTransactions(), ...loadExcelTransactions()]);
+  }
+  setShowExport(true);
+}}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold active:scale-95 transition-transform"
             style={{ background: 'var(--accent-bg)', color: 'var(--accent)', border: '1.5px solid var(--accent-border)' }}
           >
@@ -1079,15 +1108,18 @@ export default function WealthPage() {
         >
           {indmoneyLive?.success ? (
             <>
-              <LiveRow label="Invested (live)"      value={indmoneyLive.invested ?? 0} fetchedAt={indmoneyLive.fetched_at} onRefresh={loadIndmoney} />
-              <LiveRow label="Current Value (live)" value={indmoneyLive.current  ?? 0} fetchedAt={indmoneyLive.fetched_at} onRefresh={loadIndmoney} />
-              <div className="mt-2 pt-2.5 flex items-center justify-between" style={{ borderTop: '1px solid var(--border2)' }}>
+              <div className="flex items-center justify-between mb-2 px-3 py-2.5 rounded-xl" style={{ background: 'color-mix(in srgb, var(--clr-indmoney) 10%, var(--bg2))', border: '1.5px solid color-mix(in srgb, var(--clr-indmoney) 40%, var(--border))' }}>
                 <span className="text-[11px] font-semibold flex items-center gap-1.5" style={{ color: 'var(--clr-indmoney)' }}>
                   <span className="w-2 h-2 rounded-full inline-block animate-pulse" style={{ background: 'var(--clr-indmoney)' }} />
                   Connected via IND Money MCP
                 </span>
-                <button onClick={loadIndmoney} className="text-[10px] font-semibold w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:opacity-80 active:scale-95" style={{ color: 'var(--clr-indmoney)', background: 'color-mix(in srgb, var(--clr-indmoney) 14%, var(--bg2))', border: '1px solid color-mix(in srgb, var(--clr-indmoney) 30%, var(--border))' }}>↻</button>
+                <div className="flex items-center gap-1.5">
+                  <button onClick={loadIndmoney} className="text-[10px] font-semibold w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:opacity-80 active:scale-95" style={{ color: 'var(--clr-indmoney)', background: 'color-mix(in srgb, var(--clr-indmoney) 14%, var(--bg2))', border: '1px solid color-mix(in srgb, var(--clr-indmoney) 30%, var(--border))' }}>↻</button>
+                  <a href="/api/indmoney/disconnect" className="text-[10px] font-semibold px-2 py-1 rounded-lg transition-all hover:opacity-80 active:scale-95" style={{ color: 'var(--text2)', background: 'var(--bg2)', border: '1px solid var(--border)' }}>Disconnect</a>
+                </div>
               </div>
+              <LiveRow label="Invested (live)"      value={indmoneyLive.invested ?? 0} fetchedAt={indmoneyLive.fetched_at} onRefresh={loadIndmoney} />
+              <LiveRow label="Current Value (live)" value={indmoneyLive.current  ?? 0} fetchedAt={indmoneyLive.fetched_at} onRefresh={loadIndmoney} />
             </>
           ) : (
             <>
@@ -1234,11 +1266,10 @@ export default function WealthPage() {
           bondInvested: mv('bond_invested') ?? 0,  bondCurrent: mv('bond_current') ?? 0,
           fdInvested:   mv('fd_invested')   ?? 0,  fdCurrent:   mv('fd_current')   ?? 0,
         };
-        const allTxs = [...loadManualTransactions(), ...loadExcelTransactions()];
         return (
           <ExportModal
             onClose={() => setShowExport(false)}
-            transactions={allTxs}
+            transactions={exportTxs}
             wealth={wealthSnapshot}
           />
         );

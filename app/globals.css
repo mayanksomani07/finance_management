@@ -159,6 +159,13 @@
 
 * { box-sizing: border-box; }
 
+.admin-nav-email {
+  color: #9ca3af; /* neutral grey — light mode */
+}
+[data-theme='light'] .admin-nav-email {
+  color: #6b7280; /* proper dark neutral grey on white navbar */
+}
+
 body {
   background-color: var(--bg);
   color: var(--text);

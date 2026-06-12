@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@/lib/supabase-server';
+
+export const dynamic = 'force-dynamic';
 
 // Parse Zerodha Console holdings CSV export
 // Download from: console.zerodha.com → Portfolio → Holdings → Download
@@ -15,6 +18,10 @@ interface ParsedHolding {
 }
 
 export async function POST(req: NextRequest) {
+  const supabase = createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;

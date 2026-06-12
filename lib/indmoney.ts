@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { createServerClient } from './supabase';
+import { createServerClient } from './supabase-server';
 
 // ─── token persistence (Supabase wealth_manual table reused with special keys) ──
 
@@ -18,21 +18,25 @@ const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 // Minimum access token lifetime we'll use even if IndMoney says shorter
 const MIN_ACCESS_TOKEN_TTL_S = 24 * 60 * 60; // 24 hours
 
-async function getStoredValue(key: string): Promise<string | null> {
+async function getStoredValue(userId: string, key: string): Promise<string | null> {
   const db = createServerClient();
   const { data } = await db
     .from('wealth_manual')
     .select('note')
+    .eq('user_id', userId)
     .eq('key', key)
     .single();
   return data?.note ?? null;
 }
 
-async function setStoredValue(key: string, value: string): Promise<void> {
+async function setStoredValue(userId: string, key: string, value: string): Promise<void> {
   const db = createServerClient();
   await db
     .from('wealth_manual')
-    .upsert({ key, value: 0, note: value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    .upsert(
+      { user_id: userId, key, value: 0, note: value, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id,key' },
+    );
 }
 
 // ─── PKCE helpers ────────────────────────────────────────────────────────────
@@ -63,20 +67,20 @@ export async function registerClient(redirectUri: string): Promise<{ client_id: 
   return res.json();
 }
 
-export async function getOrRegisterClient(redirectUri: string): Promise<{ client_id: string; client_secret: string }> {
+export async function getOrRegisterClient(userId: string, redirectUri: string): Promise<{ client_id: string; client_secret: string }> {
   const [id, secret, storedRedirect] = await Promise.all([
-    getStoredValue(TOKEN_KEY_CLIENT_ID),
-    getStoredValue(TOKEN_KEY_CLIENT_SECRET),
-    getStoredValue(TOKEN_KEY_CLIENT_REDIRECT),
+    getStoredValue(userId, TOKEN_KEY_CLIENT_ID),
+    getStoredValue(userId, TOKEN_KEY_CLIENT_SECRET),
+    getStoredValue(userId, TOKEN_KEY_CLIENT_REDIRECT),
   ]);
   // Reuse only if the redirect URI matches — different origins (prod vs localhost) need separate clients
   if (id && secret && storedRedirect === redirectUri) return { client_id: id, client_secret: secret };
 
   const creds = await registerClient(redirectUri);
   await Promise.all([
-    setStoredValue(TOKEN_KEY_CLIENT_ID, creds.client_id),
-    setStoredValue(TOKEN_KEY_CLIENT_SECRET, creds.client_secret),
-    setStoredValue(TOKEN_KEY_CLIENT_REDIRECT, redirectUri),
+    setStoredValue(userId, TOKEN_KEY_CLIENT_ID, creds.client_id),
+    setStoredValue(userId, TOKEN_KEY_CLIENT_SECRET, creds.client_secret),
+    setStoredValue(userId, TOKEN_KEY_CLIENT_REDIRECT, redirectUri),
   ]);
   return creds;
 }
@@ -122,6 +126,7 @@ export async function exchangeCode(
 }
 
 export async function storeTokens(
+  userId: string,
   accessToken: string,
   refreshToken: string,
   expiresIn: number,
@@ -132,40 +137,23 @@ export async function storeTokens(
   const expiry = String(Date.now() + effectiveExpiry * 1000);
   const refreshExpiry = String(Date.now() + (refreshExpiresIn ? refreshExpiresIn * 1000 : REFRESH_TOKEN_TTL_MS));
   await Promise.all([
-    setStoredValue(TOKEN_KEY_ACCESS, accessToken),
-    setStoredValue(TOKEN_KEY_REFRESH, refreshToken),
-    setStoredValue(TOKEN_KEY_EXPIRY, expiry),
-    setStoredValue(TOKEN_KEY_REFRESH_EXPIRY, refreshExpiry),
+    setStoredValue(userId, TOKEN_KEY_ACCESS, accessToken),
+    setStoredValue(userId, TOKEN_KEY_REFRESH, refreshToken),
+    setStoredValue(userId, TOKEN_KEY_EXPIRY, expiry),
+    setStoredValue(userId, TOKEN_KEY_REFRESH_EXPIRY, refreshExpiry),
   ]);
 }
 
-// ─── Token refresh ────────────────────────────────────────────────────────────
+// ─── Get a valid access token ────────────────────────────────────────────────
 
-async function refreshAccessToken(clientId: string, clientSecret: string, refreshToken: string) {
-  const res = await fetch('https://mcp.indmoney.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'refresh_token',
-      refresh_token: refreshToken,
-      client_id: clientId,
-      client_secret: clientSecret,
-    }).toString(),
-  });
-  if (!res.ok) throw new Error(`Token refresh failed: ${res.status} ${await res.text()}`);
-  return res.json();
-}
-
-// ─── Get a valid access token (auto-refresh) ─────────────────────────────────
-
-export async function getValidAccessToken(): Promise<string> {
+export async function getValidAccessToken(userId: string): Promise<string> {
   const [access, refresh, expiryStr, refreshExpiryStr, clientId, clientSecret] = await Promise.all([
-    getStoredValue(TOKEN_KEY_ACCESS),
-    getStoredValue(TOKEN_KEY_REFRESH),
-    getStoredValue(TOKEN_KEY_EXPIRY),
-    getStoredValue(TOKEN_KEY_REFRESH_EXPIRY),
-    getStoredValue(TOKEN_KEY_CLIENT_ID),
-    getStoredValue(TOKEN_KEY_CLIENT_SECRET),
+    getStoredValue(userId, TOKEN_KEY_ACCESS),
+    getStoredValue(userId, TOKEN_KEY_REFRESH),
+    getStoredValue(userId, TOKEN_KEY_EXPIRY),
+    getStoredValue(userId, TOKEN_KEY_REFRESH_EXPIRY),
+    getStoredValue(userId, TOKEN_KEY_CLIENT_ID),
+    getStoredValue(userId, TOKEN_KEY_CLIENT_SECRET),
   ]);
 
   if (!access || !refresh || !clientId || !clientSecret) {
@@ -180,7 +168,7 @@ export async function getValidAccessToken(): Promise<string> {
 
   // If access token still valid (with 60s buffer), return it
   const expiry = expiryStr ? parseInt(expiryStr, 10) : 0;
-if (expiry > Date.now() + 60_000) return access;
+  if (expiry > Date.now() + 60_000) return access;
 
   // Access token expired — IndMoney refresh tokens don't reliably produce valid tokens,
   // so treat expiry as not_connected and force re-auth via the OAuth flow.
@@ -208,8 +196,8 @@ async function mcpFetch(token: string, body: object, sessionId?: string): Promis
 }
 
 
-export async function callMcpTool<T = unknown>(toolName: string, args: Record<string, unknown> = {}): Promise<T> {
-  const token = await getValidAccessToken();
+export async function callMcpTool<T = unknown>(userId: string, toolName: string, args: Record<string, unknown> = {}): Promise<T> {
+  const token = await getValidAccessToken(userId);
 
   const res = await mcpFetch(token, {
     jsonrpc: '2.0',
@@ -219,6 +207,7 @@ export async function callMcpTool<T = unknown>(toolName: string, args: Record<st
   });
 
   if (!res.ok) {
+    if (res.status === 401) throw new Error('not_connected');
     const body = await res.text().catch(() => '');
     throw new Error(`MCP HTTP error: ${res.status}${body ? ` — ${body}` : ''}`);
   }
@@ -277,14 +266,14 @@ interface NetworthHoldingsResult {
   holdings?: USStock[];
 }
 
-export async function getUSStocks(): Promise<{ invested: number; current: number; stocks: USStock[] }> {
-  const raw = await callMcpTool<NetworthHoldingsResult>('networth_holdings', { asset_type: 'US_STOCK' });
+export async function getUSStocks(userId: string): Promise<{ invested: number; current: number; stocks: USStock[] }> {
+  const raw = await callMcpTool<NetworthHoldingsResult>(userId, 'networth_holdings', { asset_type: 'US_STOCK' });
   const stocks: USStock[] = raw?.holdings ?? [];
   const invested = stocks.reduce((s, x) => s + (x.invested_amount ?? 0), 0);
   const current  = stocks.reduce((s, x) => s + (x.market_value   ?? 0), 0);
   return { invested, current, stocks };
 }
 
-export async function isConnected(): Promise<boolean> {
-  try { await getValidAccessToken(); return true; } catch { return false; }
+export async function isConnected(userId: string): Promise<boolean> {
+  try { await getValidAccessToken(userId); return true; } catch { return false; }
 }

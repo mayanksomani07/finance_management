@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase-server';
 
-async function getUser(req: NextRequest) {
+export const dynamic = 'force-dynamic';
+
+async function getUser() {
   // createServerClient uses cookies() internally — works in route handlers
   const supabase = createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -10,7 +12,7 @@ async function getUser(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const { supabase, user } = await getUser(req);
+    const { supabase, user } = await getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
@@ -47,7 +49,7 @@ export async function GET(req: NextRequest) {
 
 export async function DELETE() {
   try {
-    const { supabase, user } = await getUser(new NextRequest('http://localhost'));
+    const { supabase, user } = await getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { error } = await supabase
@@ -66,7 +68,7 @@ export async function DELETE() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { supabase, user } = await getUser(req);
+    const { supabase, user } = await getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();

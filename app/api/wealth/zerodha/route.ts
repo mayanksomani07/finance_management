@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { callKiteAPI } from '@/lib/kite';
+import { createServerClient } from '@/lib/supabase-server';
+
+export const dynamic = 'force-dynamic';
 
 interface KiteHolding {
   tradingsymbol: string;
@@ -233,12 +236,16 @@ function sumBucket<T>(items: T[], predicate: (item: T) => boolean, inv: (i: T) =
 // ─── route ───────────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
+  const supabase = createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+
   const { searchParams } = new URL(req.url);
   const type = searchParams.get('type') ?? 'equity';
 
   try {
     if (type === 'equity') {
-      const raw = await callKiteAPI<KiteHolding[]>('/portfolio/holdings');
+      const raw = await callKiteAPI<KiteHolding[]>('/portfolio/holdings', user.id);
 
       const enriched = raw.map((h) => ({
         symbol: h.tradingsymbol,
@@ -271,7 +278,7 @@ export async function GET(req: NextRequest) {
     }
 
     // MF via Kite Coin
-    const raw = await callKiteAPI<KiteMFHolding[]>('/mf/holdings');
+    const raw = await callKiteAPI<KiteMFHolding[]>('/mf/holdings', user.id);
 
     const enriched = raw.map((h) => ({
       symbol: h.tradingsymbol,

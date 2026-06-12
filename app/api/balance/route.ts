@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase-server';
 
+export const dynamic = 'force-dynamic';
+
 async function getUser() {
   const supabase = createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -27,7 +29,7 @@ export async function GET() {
     .from('transactions')
     .select('amount, type')
     .eq('user_id', user.id)
-    .gte('created_at', snapshot.created_at);
+    .gte('transaction_at', snapshot.snapshot_at);
 
   let delta = 0;
   for (const tx of txAfter ?? []) {
@@ -50,7 +52,9 @@ export async function POST(req: NextRequest) {
   const { supabase, user } = await getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const body = await req.json();
+  let body: { actual_balance?: unknown; note?: unknown };
+  try { body = await req.json(); }
+  catch { return NextResponse.json({ success: false, error: 'Invalid JSON' }, { status: 400 }); }
   const { actual_balance, note } = body;
 
   if (actual_balance == null || isNaN(Number(actual_balance))) {

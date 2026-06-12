@@ -1,16 +1,21 @@
 import { NextResponse } from 'next/server';
 import { getUSStocks, isConnected } from '@/lib/indmoney';
+import { createServerClient } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const connected = await isConnected();
+  const supabase = createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+
+  const connected = await isConnected(user.id);
   if (!connected) {
     return NextResponse.json({ success: false, error: 'not_connected' });
   }
 
   try {
-    const { invested, current, stocks } = await getUSStocks();
+    const { invested, current, stocks } = await getUSStocks(user.id);
     return NextResponse.json({
       success: true,
       invested,

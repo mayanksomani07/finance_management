@@ -4,9 +4,10 @@ import { createContext, useContext, useEffect, useState } from 'react';
 
 type Theme = 'dark' | 'light';
 
-const ThemeContext = createContext<{ theme: Theme; toggle: () => void }>({
+const ThemeContext = createContext<{ theme: Theme; toggle: () => void; resetTheme: () => void }>({
   theme: 'dark',
   toggle: () => {},
+  resetTheme: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -29,8 +30,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     });
   }
 
+  function resetTheme() {
+    localStorage.removeItem('theme');
+    document.documentElement.setAttribute('data-theme', 'dark');
+    setTheme('dark');
+  }
+
   return (
-    <ThemeContext.Provider value={{ theme, toggle }}>
+    <ThemeContext.Provider value={{ theme, toggle, resetTheme }}>
       {children}
     </ThemeContext.Provider>
   );

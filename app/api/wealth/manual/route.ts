@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase-server';
 
+export const dynamic = 'force-dynamic';
+
 async function getUser() {
   const supabase = createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -21,6 +23,8 @@ export async function GET() {
 
   const map: Record<string, { value: number; updated_at: string; note?: string }> = {};
   for (const row of data ?? []) {
+    // Skip internal OAuth/token keys — not meant for client consumption
+    if (row.key.startsWith('_')) continue;
     if (!map[row.key]) map[row.key] = { value: row.value, updated_at: row.updated_at, note: row.note };
   }
   return NextResponse.json({ success: true, data: map });
@@ -32,14 +36,15 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const { key, value, note } = body;
-  if (!key || value === undefined) {
-    return NextResponse.json({ success: false, error: 'key and value required' }, { status: 400 });
+  const parsedValue = parseFloat(value);
+  if (!key || value === undefined || value === null || isNaN(parsedValue)) {
+    return NextResponse.json({ success: false, error: 'key and valid numeric value required' }, { status: 400 });
   }
 
   const { error } = await supabase
     .from('wealth_manual')
     .upsert(
-      { user_id: user.id, key, value: parseFloat(value), note: note ?? null, updated_at: new Date().toISOString() },
+      { user_id: user.id, key, value: parsedValue, note: note ?? null, updated_at: new Date().toISOString() },
       { onConflict: 'user_id,key' }
     );
 

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase-server';
 
+export const dynamic = 'force-dynamic';
+
 async function getUser() {
   const supabase = createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -48,15 +50,29 @@ export async function PATCH(
       description?: string; transaction_at?: string;
     };
 
+    if (body.amount !== undefined) {
+      if (typeof body.amount !== 'number' || body.amount <= 0)
+        return NextResponse.json({ success: false, error: 'Valid amount is required' }, { status: 400 });
+    }
+    if (body.type !== undefined && body.type !== 'income' && body.type !== 'expense') {
+      return NextResponse.json({ success: false, error: 'type must be income or expense' }, { status: 400 });
+    }
+
+    const updates = {
+      ...(body.amount         !== undefined && { amount: body.amount }),
+      ...(body.type           !== undefined && { type: body.type }),
+      ...(body.category       !== undefined && { category: body.category }),
+      ...(body.description    !== undefined && { description: body.description }),
+      ...(body.transaction_at !== undefined && { transaction_at: body.transaction_at }),
+    };
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ success: false, error: 'No fields to update' }, { status: 400 });
+    }
+
     const { data, error } = await supabase
       .from('transactions')
-      .update({
-        ...(body.amount         !== undefined && { amount: body.amount }),
-        ...(body.type           !== undefined && { type: body.type }),
-        ...(body.category       !== undefined && { category: body.category }),
-        ...(body.description    !== undefined && { description: body.description }),
-        ...(body.transaction_at !== undefined && { transaction_at: body.transaction_at }),
-      })
+      .update(updates)
       .eq('id', id)
       .eq('user_id', user.id)
       .select()

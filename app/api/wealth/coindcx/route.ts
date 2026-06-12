@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
+import { createServerClient } from '@/lib/supabase-server';
+import { isWealthUser } from '@/lib/users';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,6 +54,11 @@ async function postAuth(apiKey: string, apiSecret: string, endpoint: string, ext
 }
 
 export async function GET() {
+  const supabase = createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  if (!isWealthUser(user.email)) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+
   const apiKey = process.env.COINDCX_API_KEY;
   const apiSecret = process.env.COINDCX_API_SECRET;
   if (!apiKey || !apiSecret) {

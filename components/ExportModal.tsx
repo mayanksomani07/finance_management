@@ -66,12 +66,12 @@ export default function ExportModal({ onClose, transactions, wealth }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="w-full max-w-lg rounded-t-3xl pb-10"
+        className="w-full max-w-lg rounded-t-3xl sm:rounded-3xl"
         style={{
           backgroundColor: 'var(--bg)',
           border: '1.5px solid var(--border)',
@@ -79,6 +79,7 @@ export default function ExportModal({ onClose, transactions, wealth }: Props) {
           boxShadow: '0 -16px 64px rgba(0,0,0,0.45)',
           maxHeight: '90vh',
           overflowY: 'auto',
+          paddingBottom: 'max(32px, env(safe-area-inset-bottom, 32px))',
         }}
       >
         {/* Handle */}

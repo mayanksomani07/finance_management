@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase-server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
+export const dynamic = 'force-dynamic';
+
 async function getCallerEmail(): Promise<string | null> {
   const cookieStore = cookies();
   const supabase = createServerClient(
@@ -39,15 +41,17 @@ export async function GET(_req: NextRequest) {
   ).length ?? 0;
 
   // Transaction count only — no amounts
-  const { count: txCount } = await admin
+  const { count: txCount, error: txCountError } = await admin
     .from('transactions')
     .select('*', { count: 'exact', head: true });
+  if (txCountError) console.error('[admin/stats] txCount error:', txCountError);
 
-  // Active users (had a transaction in last 30 days) — just the count
-  const { data: activeData } = await admin
+  // Active users: distinct users who added a transaction in last 30 days (by row created_at, not transaction date)
+  const { data: activeData, error: activeError } = await admin
     .from('transactions')
     .select('user_id')
     .gte('created_at', thirtyDaysAgo.toISOString());
+  if (activeError) console.error('[admin/stats] activeData error:', activeError);
   const activeUsers = new Set(activeData?.map(r => r.user_id)).size;
 
   // User list — email + signup date + transaction count (no amounts, no descriptions)
@@ -59,10 +63,23 @@ export async function GET(_req: NextRequest) {
     created_at: u.created_at,
   }));
 
-  // Per-user transaction count only (no amounts — privacy)
-  const { data: perUserCounts } = await admin
-    .from('transactions')
-    .select('user_id');
+  // Per-user transaction count only (no amounts — privacy). Fetch all pages.
+  let perUserCounts: { user_id: string }[] = [];
+  {
+    const PAGE = 1000;
+    let from = 0;
+    while (true) {
+      const { data, error } = await admin
+        .from('transactions')
+        .select('user_id')
+        .range(from, from + PAGE - 1);
+      if (error) { console.error('[admin/stats] perUserCounts error:', error); break; }
+      if (!data || data.length === 0) break;
+      perUserCounts = perUserCounts.concat(data);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+  }
   const countMap: Record<string, number> = {};
   perUserCounts?.forEach(r => {
     countMap[r.user_id] = (countMap[r.user_id] ?? 0) + 1;

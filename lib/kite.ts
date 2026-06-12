@@ -1,29 +1,31 @@
 import crypto from 'crypto';
-import { createServerClient } from './supabase';
+import { createServerClient } from './supabase-server';
 
 // ─── token persistence (Supabase wealth_manual table, same pattern as indmoney) ──
 
 const ENV = process.env.NEXT_PUBLIC_APP_ENV ?? (process.env.NODE_ENV === 'production' ? 'prod' : 'dev');
 const KEY_ACCESS   = `_kite_access_token_${ENV}`;
 const KEY_EXPIRY   = `_kite_token_expiry_${ENV}`;
-// api_key comes from env — no dynamic registration needed for Kite Connect Personal API
-// api_secret comes from env — used server-side only for token exchange
 
-async function getStoredValue(key: string): Promise<string | null> {
+async function getStoredValue(userId: string, key: string): Promise<string | null> {
   const db = createServerClient();
   const { data } = await db
     .from('wealth_manual')
     .select('note')
+    .eq('user_id', userId)
     .eq('key', key)
     .single();
   return data?.note ?? null;
 }
 
-async function setStoredValue(key: string, value: string): Promise<void> {
+async function setStoredValue(userId: string, key: string, value: string): Promise<void> {
   const db = createServerClient();
   await db
     .from('wealth_manual')
-    .upsert({ key, value: 0, note: value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    .upsert(
+      { user_id: userId, key, value: 0, note: value, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id,key' },
+    );
 }
 
 // ─── Kite Connect OAuth helpers ───────────────────────────────────────────────
@@ -36,7 +38,7 @@ async function setStoredValue(key: string, value: string): Promise<void> {
 const KITE_BASE = 'https://kite.trade';
 const KITE_API  = 'https://api.kite.trade';
 
-export function buildKiteAuthUrl(redirectUri: string): string {
+export function buildKiteAuthUrl(): string {
   const apiKey = process.env.ZERODHA_API_KEY;
   if (!apiKey) throw new Error('ZERODHA_API_KEY not configured');
   // Kite encodes redirect_uri itself — just pass v=3
@@ -75,26 +77,26 @@ export async function exchangeRequestToken(requestToken: string): Promise<{ acce
   return json.data ?? json;
 }
 
-export async function storeKiteToken(accessToken: string): Promise<void> {
+export async function storeKiteToken(userId: string, accessToken: string): Promise<void> {
   // Kite access tokens expire at ~6 AM IST next day — store with 23h TTL
   const expiry = String(Date.now() + 23 * 60 * 60 * 1000);
   await Promise.all([
-    setStoredValue(KEY_ACCESS, accessToken),
-    setStoredValue(KEY_EXPIRY, expiry),
+    setStoredValue(userId, KEY_ACCESS, accessToken),
+    setStoredValue(userId, KEY_EXPIRY, expiry),
   ]);
 }
 
-export async function getValidKiteToken(): Promise<string> {
+export async function getValidKiteToken(userId: string): Promise<string> {
   const apiKey = process.env.ZERODHA_API_KEY;
   if (!apiKey) throw new Error('not_configured');
 
-  // Prefer env-var token (manual override) — useful during initial setup
+  // Env-var token override — only in development (never in production)
   const envToken = process.env.ZERODHA_ACCESS_TOKEN;
-  if (envToken) return envToken;
+  if (envToken && process.env.NODE_ENV !== 'production') return envToken;
 
   const [token, expiryStr] = await Promise.all([
-    getStoredValue(KEY_ACCESS),
-    getStoredValue(KEY_EXPIRY),
+    getStoredValue(userId, KEY_ACCESS),
+    getStoredValue(userId, KEY_EXPIRY),
   ]);
 
   if (!token) throw new Error('not_connected');
@@ -105,24 +107,30 @@ export async function getValidKiteToken(): Promise<string> {
   return token;
 }
 
-export async function clearKiteTokens(): Promise<void> {
+export async function clearKiteTokens(userId: string): Promise<void> {
   const db = createServerClient();
-  const { data } = await db.from('wealth_manual').select('key').like('key', '_kite_%');
+  const { data } = await db
+    .from('wealth_manual')
+    .select('key')
+    .eq('user_id', userId)
+    .like('key', '_kite_%');
   const keys = (data ?? []).map((r) => r.key);
-  if (keys.length) await db.from('wealth_manual').delete().in('key', keys);
+  if (keys.length) {
+    await db.from('wealth_manual').delete().eq('user_id', userId).in('key', keys);
+  }
 }
 
-export async function isKiteConnected(): Promise<boolean> {
-  try { await getValidKiteToken(); return true; } catch { return false; }
+export async function isKiteConnected(userId: string): Promise<boolean> {
+  try { await getValidKiteToken(userId); return true; } catch { return false; }
 }
 
 // ─── Kite API call wrapper ────────────────────────────────────────────────────
 
-export async function callKiteAPI<T = unknown>(path: string): Promise<T> {
+export async function callKiteAPI<T = unknown>(path: string, userId: string): Promise<T> {
   const apiKey = process.env.ZERODHA_API_KEY;
   if (!apiKey) throw new Error('not_configured');
 
-  const token = await getValidKiteToken();
+  const token = await getValidKiteToken(userId);
 
   const res = await fetch(`${KITE_API}${path}`, {
     headers: {

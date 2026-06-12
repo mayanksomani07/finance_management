@@ -17,9 +17,9 @@ function key(userId: string, suffix: string) {
   return `${suffix}_${userId}`;
 }
 
-function currentUserId(): string {
-  if (typeof window === 'undefined') return '__anon__';
-  return localStorage.getItem('fintrack_user_id') ?? '__anon__';
+function currentUserId(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('fintrack_user_id') ?? null;
 }
 
 /** Call this after auth resolves to scope localStorage to the signed-in user */
@@ -35,32 +35,42 @@ export function clearLocalUserId(): void {
 
 export function loadExcelTransactions(): LocalTransaction[] {
   if (typeof window === 'undefined') return [];
-  try { return JSON.parse(localStorage.getItem(key(currentUserId(), 'excel_transactions')) ?? '[]'); } catch { return []; }
+  const uid = currentUserId();
+  if (!uid) return [];
+  try { return JSON.parse(localStorage.getItem(key(uid, 'excel_transactions')) ?? '[]'); } catch { return []; }
 }
 
 export function saveExcelTransactions(txs: LocalTransaction[]): void {
-  localStorage.setItem(key(currentUserId(), 'excel_transactions'), JSON.stringify(txs));
+  const uid = currentUserId();
+  if (!uid) return;
+  localStorage.setItem(key(uid, 'excel_transactions'), JSON.stringify(txs));
 }
 
 export function loadManualTransactions(): LocalTransaction[] {
   if (typeof window === 'undefined') return [];
-  try { return JSON.parse(localStorage.getItem(key(currentUserId(), 'manual_transactions')) ?? '[]'); } catch { return []; }
+  const uid = currentUserId();
+  if (!uid) return [];
+  try { return JSON.parse(localStorage.getItem(key(uid, 'manual_transactions')) ?? '[]'); } catch { return []; }
 }
 
 export function saveManualTransaction(tx: LocalTransaction): void {
-  const existing = loadManualTransactions();
+  const uid = currentUserId();
+  if (!uid) return;
+  const existing = loadManualTransactions().filter(t => t.id !== tx.id);
   existing.unshift(tx);
-  localStorage.setItem(key(currentUserId(), 'manual_transactions'), JSON.stringify(existing));
+  localStorage.setItem(key(uid, 'manual_transactions'), JSON.stringify(existing));
 }
 
 export function clearAllTransactions(): void {
   const uid = currentUserId();
+  if (!uid) return;
   localStorage.removeItem(key(uid, 'excel_transactions'));
   localStorage.removeItem(key(uid, 'manual_transactions'));
 }
 
 export function deleteTransaction(id: string): void {
   const uid = currentUserId();
+  if (!uid) return;
   const manual = loadManualTransactions().filter(t => t.id !== id);
   localStorage.setItem(key(uid, 'manual_transactions'), JSON.stringify(manual));
   const excel = loadExcelTransactions().filter(t => t.id !== id);
@@ -69,6 +79,7 @@ export function deleteTransaction(id: string): void {
 
 export function updateTransaction(updated: LocalTransaction): void {
   const uid = currentUserId();
+  if (!uid) return;
   const manual = loadManualTransactions().map(t => t.id === updated.id ? updated : t);
   localStorage.setItem(key(uid, 'manual_transactions'), JSON.stringify(manual));
   const excel = loadExcelTransactions().map(t => t.id === updated.id ? updated : t);

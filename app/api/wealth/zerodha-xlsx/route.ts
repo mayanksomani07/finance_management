@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
+import { createServerClient } from '@/lib/supabase-server';
+
+export const dynamic = 'force-dynamic';
 
 // Actual Zerodha XLSX column names (from console.zerodha.com Holdings download)
 // Equity sheet:  Symbol | ISIN | Sector | Quantity | Available Quantity | Discrepant Quantity |
@@ -14,7 +17,7 @@ const EXCLUDE_SYMBOLS = new Set(['1040SML26-F']);
 // Gold ETF NSE symbols (exhaustive, 2025)
 const GOLD_ETF_SET = new Set([
   'GOLDBEES', 'SETFGOLD', 'HDFCMFGETF', 'HDFCGOLD', 'ICICIGOLD', 'KOTAKGOLD',
-  'AXISGOLD', 'BSLGOLDETF', 'GOLDSHARE', 'GOLDIETF', 'QGOLDHALF', 'IVZINGOLD',
+  'AXISGOLD', 'BSLGOLDETF', 'GOLDETF', 'GOLDSHARE', 'GOLDIETF', 'QGOLDHALF', 'IVZINGOLD',
   'LICMFGOLD', 'MIAETFGOLD', 'DSPGOLDETF', 'TATGOLDETF', 'EBBETFGOLD',
   'BFNGOLDETF', 'MOGOLD', 'BARODAGOLD', 'HSBCGOLDETF', 'UNIONGOLD', '360GOLDETF',
   'ZGOLD', 'CANRGOLD', 'TWCGOLDETF', 'CHOICEGOLD', 'NJGOLDETF', 'WOAETFGOLD',
@@ -22,7 +25,7 @@ const GOLD_ETF_SET = new Set([
 
 // Silver ETF NSE symbols (exhaustive, 2025)
 const SILVER_ETF_SET = new Set([
-  'SILVERBEES', 'SETFSILVER', 'HDFCSILVER', 'ICICISILVE', 'KOTAKSILVE', 'AXISILVER',
+  'SILVER', 'SILVERBEES', 'SETFSILVER', 'HDFCSILVER', 'ICICISILVE', 'KOTAKSILVE', 'AXISILVER',
   'MASILVER', 'DSPSILVETF', 'SILVERIETF', 'BSLSILVETF', 'TATSILVETF', 'MOSILVER',
   'EBBSILVETF', 'IVZINSILVE', 'BFNSILVETF', 'ZSILVER',
 ]);
@@ -41,14 +44,14 @@ function isGoldETF(symbol: string, sector?: string): boolean {
   // Exact match against known symbols
   if (GOLD_ETF_SET.has(s)) return true;
   // Fallback: symbol or sector contains GOLD keyword (catches future launches)
-  return s.includes('GOLD') && !isForeignETF(symbol) || sec.includes('GOLD');
+  return (s.includes('GOLD') || sec.includes('GOLD')) && !isForeignETF(symbol);
 }
 
 function isSilverETF(symbol: string, sector?: string): boolean {
   const s = symbol.toUpperCase();
   const sec = (sector ?? '').toUpperCase();
   if (SILVER_ETF_SET.has(s)) return true;
-  return s.includes('SILVER') || sec.includes('SILVER');
+  return (s.includes('SILVER') || sec.includes('SILVER')) && !isForeignETF(symbol);
 }
 
 function isGoldSilverETF(symbol: string, sector?: string): boolean {
@@ -140,6 +143,10 @@ function emptyResult(): Result {
 function round2(n: number) { return parseFloat(n.toFixed(2)); }
 
 export async function POST(req: NextRequest) {
+  const supabase = createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
@@ -274,13 +281,14 @@ function processMFRows(rows: Record<string, unknown>[], result: Result, debug: s
     const avgPrice = parseNum(col(row, 'average price'));
     const closingPrice = parseNum(col(row, 'previous closing price', 'closing price', 'nav'));
     const instrumentType = String(col(row, 'instrument type') ?? '').trim();
+    const fundName = String(col(row, 'fund name', 'scheme name', 'name', 'fund') ?? symbol).trim();
 
     const invested = avgPrice * qty;
     const current = closingPrice * qty;
     if (invested === 0 && current === 0) continue;
 
     count++;
-    const category = classifyMF(instrumentType, symbol);
+    const category = classifyMF(instrumentType, fundName);
     result.mf[category].invested += invested;
     result.mf[category].current += current;
     result.mf.total.invested += invested;

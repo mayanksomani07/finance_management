@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exchangeRequestToken, storeKiteToken } from '@/lib/kite';
+import { createServerClient } from '@/lib/supabase-server';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   const url          = new URL(req.url);
@@ -16,12 +19,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${url.origin}/wealth?kite_error=missing_request_token`);
   }
 
+  const supabase = createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.redirect(`${url.origin}/login?redirect=/wealth`);
+  }
+
   try {
     const { access_token } = await exchangeRequestToken(requestToken);
     if (!access_token) {
       return NextResponse.redirect(`${url.origin}/wealth?kite_error=no_access_token`);
     }
-    await storeKiteToken(access_token);
+    await storeKiteToken(user.id, access_token);
     return NextResponse.redirect(`${url.origin}/wealth?kite_connected=1`);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

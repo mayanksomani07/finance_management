@@ -48,18 +48,20 @@ export default function ResetPasswordPage() {
     // Timeout: if no PASSWORD_RECOVERY event fires within 8s, the link is invalid
     const timeout = setTimeout(() => {
       setLinkExpired(true);
-    }, 8000);
+    }, 30000);
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) { setReady(true); clearTimeout(timeout); }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session: Session | null) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: Session | null) => {
       if (event === 'PASSWORD_RECOVERY') { setReady(true); clearTimeout(timeout); }
-      if (event === 'SIGNED_IN' && session) { setReady(true); clearTimeout(timeout); }
+      // Accept SIGNED_IN only if there's no error in the hash (i.e. a valid recovery link)
+      if (event === 'SIGNED_IN' && session && !window.location.hash.includes('error')) {
+        setReady(true);
+        clearTimeout(timeout);
+      }
     });
 
     return () => { subscription.unsubscribe(); clearTimeout(timeout); };
+  // supabase is a singleton — stable across renders
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const allRulesPassed = PW_RULES.every(r => r.test(password));
@@ -75,94 +77,100 @@ export default function ResetPasswordPage() {
     const { error } = await supabase.auth.updateUser({ password });
     if (error) { setError(error.message); setLoading(false); return; }
     setDone(true);
-    setTimeout(() => router.replace('/'), 3000);
+    const t = setTimeout(() => router.replace('/'), 3000);
+    return () => clearTimeout(t);
   }
 
   return (
-    <div className="min-h-screen flex" style={{ backgroundColor: '#0f0f11' }}>
+    <div className="min-h-screen flex flex-col lg:flex-row" style={{ backgroundColor: '#0f0f11' }}>
 
-      {/* ── Left panel — branding ── */}
+      {/* ── Left panel — branding (desktop only) ── */}
       <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%)' }}>
-        <div className="absolute top-[-80px] right-[-80px] w-[360px] h-[360px] rounded-full opacity-20"
-          style={{ background: 'radial-gradient(circle, #6366f1, transparent)' }} />
-        <div className="absolute bottom-[-60px] left-[-60px] w-[280px] h-[280px] rounded-full opacity-15"
-          style={{ background: 'radial-gradient(circle, #8b5cf6, transparent)' }} />
-        <div className="absolute top-1/3 left-1/4 w-[200px] h-[200px] rounded-full opacity-10"
-          style={{ background: 'radial-gradient(circle, #06b6d4, transparent)' }} />
+        style={{ background: 'linear-gradient(160deg, #13132b 0%, #1a1a3e 40%, #0f2a50 100%)' }}>
 
-        {/* Logo */}
-        <div className="relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-lg"
-              style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
-              💰
-            </div>
-            <span className="text-white text-xl font-bold tracking-tight">FinTrack</span>
+        <div className="absolute top-[-100px] right-[-80px] w-[400px] h-[400px] rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.22) 0%, transparent 70%)' }} />
+        <div className="absolute bottom-[-80px] left-[-60px] w-[320px] h-[320px] rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 70%)' }} />
+        <div className="absolute top-[40%] left-[20%] w-[240px] h-[240px] rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(6,182,212,0.08) 0%, transparent 70%)' }} />
+
+        {/* ── Logo ── */}
+        <div className="relative z-10 flex items-center gap-4">
+          <FinTrackLogo size={48} />
+          <div>
+            <div className="font-bold text-white" style={{ fontSize: '20px', letterSpacing: '-0.01em', lineHeight: 1 }}>FinTrack</div>
+            <div style={{ fontSize: '10px', letterSpacing: '0.12em', color: 'rgba(255,255,255,0.35)', marginTop: '5px' }}>SECURE YOUR ACCOUNT</div>
           </div>
         </div>
 
-        {/* Center message */}
-        <div className="relative z-10 space-y-6">
-          <div>
-            <h2 className="text-4xl font-bold text-white leading-tight mb-3">
-              Almost there —<br />
-              <span style={{ background: 'linear-gradient(90deg, #6366f1, #8b5cf6, #06b6d4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                secure your account
-              </span>
-            </h2>
-            <p className="text-lg" style={{ color: 'rgba(255,255,255,0.55)' }}>
-              Choose a strong password to keep your financial data safe.
-            </p>
+        {/* ── Hero copy ── */}
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-5">
+            <div className="w-5 h-px" style={{ background: 'linear-gradient(90deg, #6366f1, #8b5cf6)' }} />
+            <span style={{ fontSize: '11px', letterSpacing: '0.14em', color: 'rgba(255,255,255,0.4)' }}>PASSWORD RESET</span>
           </div>
 
-          {/* Security tips */}
-          <div className="space-y-3">
+          <h2 style={{ fontSize: '42px', lineHeight: 1.1, letterSpacing: '-0.025em', marginBottom: '20px' }}>
+            <span style={{ fontWeight: 300, color: 'rgba(255,255,255,0.7)' }}>Almost there —</span><br />
+            <span style={{ fontWeight: 800, background: 'linear-gradient(90deg, #818cf8, #a78bfa, #38bdf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              secure your account
+            </span>
+          </h2>
+
+          <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.45)', lineHeight: 1.7, marginBottom: '32px' }}>
+            Choose a strong password to keep<br />your financial data safe.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {[
-              { icon: '🔑', text: 'Use a unique password not used elsewhere' },
-              { icon: '🛡️', text: 'Mix letters, numbers, and symbols' },
-              { icon: '🔒', text: 'Longer passwords are stronger passwords' },
+              'Use a unique password not used elsewhere',
+              'Mix letters, numbers, and symbols',
+              'Longer passwords are stronger passwords',
             ].map(tip => (
-              <div key={tip.text} className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0"
-                  style={{ backgroundColor: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.3)' }}>
-                  {tip.icon}
-                </div>
-                <span className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>{tip.text}</span>
+              <div key={tip} className="flex items-center gap-3">
+                <div className="shrink-0 w-1.5 h-1.5 rounded-full" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }} />
+                <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.72)' }}>{tip}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Bottom note */}
+        {/* ── Bottom note ── */}
         <div className="relative z-10 rounded-2xl p-5"
-          style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)' }}>
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 mt-0.5"
-              style={{ backgroundColor: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.3)' }}>
-              ℹ️
-            </div>
-            <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>
-              This link is valid for <strong className="text-white">1 hour</strong>. After resetting, you&apos;ll be signed in automatically.
-            </p>
-          </div>
+          style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)' }}>
+          <p style={{ fontSize: '13px', lineHeight: 1.6, color: 'rgba(255,255,255,0.5)' }}>
+            This link is valid for{' '}
+            <span style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>1 hour</span>.
+            {' '}After resetting, you&apos;ll be signed in automatically.
+          </p>
         </div>
       </div>
 
+
       {/* ── Right panel — form ── */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 lg:p-12"
-        style={{ backgroundColor: '#0f0f11' }}>
+      <div className="flex-1 flex items-center justify-center overflow-y-auto"
+        style={{
+          backgroundColor: '#0f0f11',
+          padding: 'max(2.5rem, env(safe-area-inset-top)) max(1.5rem, env(safe-area-inset-right)) max(2.5rem, env(safe-area-inset-bottom)) max(1.5rem, env(safe-area-inset-left))',
+        }}>
 
-        {/* Mobile logo */}
-        <div className="flex lg:hidden items-center gap-2 mb-8">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg"
-            style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
-            💰
+        <div className="w-full" style={{ maxWidth: '400px' }}>
+
+          {/* Mobile + tablet logo — glow + accent line, no banner */}
+          <div className="flex lg:hidden flex-col items-center mb-8 relative">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full pointer-events-none"
+              style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.25) 0%, transparent 70%)', filter: 'blur(16px)' }} />
+            <FinTrackLogo size={52} />
+            <div className="mt-4 text-center" style={{ lineHeight: 1 }}>
+              <span className="text-white text-2xl font-bold block" style={{ marginBottom: '5px' }}>FinTrack</span>
+              <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.35)', letterSpacing: '0.08em' }}>SECURE YOUR ACCOUNT</span>
+            </div>
+            <div className="mt-6 w-12 h-px rounded-full" style={{ background: 'linear-gradient(90deg, transparent, #6366f1, #8b5cf6, transparent)' }} />
           </div>
-          <span className="text-white text-lg font-bold">FinTrack</span>
-        </div>
 
-        <div className="w-full max-w-sm">
+          <div>
+
           {linkExpired ? (
             /* ── Expired / invalid link ── */
             <div className="text-center space-y-6">
@@ -188,8 +196,8 @@ export default function ResetPasswordPage() {
                 </p>
               </div>
               <a href="/login?screen=forgot"
-                className="block w-full py-3 rounded-xl text-sm font-semibold text-center transition-all active:scale-[0.98] hover:opacity-90"
-                style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', boxShadow: '0 4px 20px rgba(99,102,241,0.35)' }}>
+                className="flex items-center justify-center w-full rounded-xl text-sm font-semibold text-center transition-all active:scale-[0.98] hover:opacity-90"
+                style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', boxShadow: '0 4px 20px rgba(99,102,241,0.35)', height: '52px' }}>
                 Request a new reset link
               </a>
               <p className="text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>
@@ -255,12 +263,12 @@ export default function ResetPasswordPage() {
                       onChange={e => setPassword(e.target.value)}
                       onFocus={e => { setPwFocused(true); e.currentTarget.style.borderColor = 'rgba(99,102,241,0.6)'; e.currentTarget.style.backgroundColor = 'rgba(99,102,241,0.07)'; }}
                       onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; }}
-                      className="w-full px-4 py-3 pr-11 rounded-xl text-sm outline-none transition-all disabled:opacity-40"
-                      style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
+                      className="w-full px-4 pr-12 rounded-xl text-base outline-none transition-all disabled:opacity-40"
+                      style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', height: '52px', fontSize: '16px' }}
                     />
                     <button type="button" tabIndex={-1} onClick={() => setShowPw(p => !p)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 transition-opacity hover:opacity-70"
-                      style={{ color: 'rgba(255,255,255,0.4)' }}>
+                      className="absolute right-0 top-0 h-full px-4 flex items-center justify-center rounded-r-xl transition-opacity hover:opacity-70 active:opacity-50"
+                      style={{ color: 'rgba(255,255,255,0.4)', minWidth: '48px' }}>
                       {showPw ? <EyeOffIcon /> : <EyeIcon />}
                     </button>
                   </div>
@@ -317,22 +325,22 @@ export default function ResetPasswordPage() {
                         e.currentTarget.style.borderColor = matchColor;
                         e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)';
                       }}
-                      className="w-full px-4 py-3 pr-11 rounded-xl text-sm outline-none transition-all disabled:opacity-40"
-                      style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
+                      className="w-full px-4 pr-16 rounded-xl text-base outline-none transition-all disabled:opacity-40"
+                      style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', height: '52px', fontSize: '16px' }}
                     />
-                    <button type="button" tabIndex={-1} onClick={() => setShowConfirm(p => !p)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 transition-opacity hover:opacity-70"
-                      style={{ color: 'rgba(255,255,255,0.4)' }}>
-                      {showConfirm ? <EyeOffIcon /> : <EyeIcon />}
-                    </button>
                     {/* Match indicator */}
                     {confirm.length > 0 && (
-                      <div className="absolute right-10 top-1/2 -translate-y-1/2">
+                      <div className="absolute right-12 top-1/2 -translate-y-1/2 pointer-events-none">
                         {passwordsMatch
-                          ? <span className="text-xs" style={{ color: '#22c55e' }}>✓</span>
-                          : <span className="text-xs" style={{ color: '#f87171' }}>✗</span>}
+                          ? <span className="text-sm" style={{ color: '#22c55e' }}>✓</span>
+                          : <span className="text-sm" style={{ color: '#f87171' }}>✗</span>}
                       </div>
                     )}
+                    <button type="button" tabIndex={-1} onClick={() => setShowConfirm(p => !p)}
+                      className="absolute right-0 top-0 h-full px-4 flex items-center justify-center rounded-r-xl transition-opacity hover:opacity-70 active:opacity-50"
+                      style={{ color: 'rgba(255,255,255,0.4)', minWidth: '48px' }}>
+                      {showConfirm ? <EyeOffIcon /> : <EyeIcon />}
+                    </button>
                   </div>
                   {confirm.length > 0 && !passwordsMatch && (
                     <p className="text-xs mt-1.5" style={{ color: '#f87171' }}>Passwords don&apos;t match</p>
@@ -353,8 +361,8 @@ export default function ResetPasswordPage() {
                 {/* Submit */}
                 <button type="submit"
                   disabled={loading || !ready || (password.length > 0 && !allRulesPassed) || (confirm.length > 0 && !passwordsMatch)}
-                  className="w-full py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 active:scale-[0.98] hover:opacity-90"
-                  style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', boxShadow: '0 4px 20px rgba(99,102,241,0.35)' }}>
+                  className="w-full rounded-xl text-sm font-semibold transition-all disabled:opacity-50 active:scale-[0.98] hover:opacity-90"
+                  style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', boxShadow: '0 4px 20px rgba(99,102,241,0.35)', height: '52px' }}>
                   {loading
                     ? <span className="flex items-center justify-center gap-2"><Spinner />Updating password…</span>
                     : !ready
@@ -371,6 +379,7 @@ export default function ResetPasswordPage() {
               </p>
             </div>
           )}
+          </div>{/* end form wrapper */}
         </div>
       </div>
 
@@ -381,6 +390,27 @@ export default function ResetPasswordPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+function FinTrackLogo({ size = 40 }: { size?: number }) {
+  const r = size * 0.275;
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"
+      style={{ flexShrink: 0, display: 'block', minWidth: size, filter: 'drop-shadow(0 4px 12px rgba(99,102,241,0.45))' }}>
+      <defs>
+        <linearGradient id="logoGradR" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#6366f1" />
+          <stop offset="100%" stopColor="#8b5cf6" />
+        </linearGradient>
+      </defs>
+      <rect width="40" height="40" rx={r} fill="url(#logoGradR)" />
+      <rect x="8"  y="22" width="6" height="10" rx="1.5" fill="white" fillOpacity="0.55" />
+      <rect x="17" y="16" width="6" height="16" rx="1.5" fill="white" fillOpacity="0.8" />
+      <rect x="26" y="10" width="6" height="22" rx="1.5" fill="white" fillOpacity="1" />
+      <polyline points="11,21 20,15 29,9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeOpacity="0.9" />
+      <circle cx="29" cy="9" r="2" fill="white" fillOpacity="0.95" />
+    </svg>
   );
 }
 
