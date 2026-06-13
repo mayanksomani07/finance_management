@@ -10,8 +10,9 @@ A multi-user PWA that auto-captures Indian bank transactions from SMS (via iOS S
 2. In **SQL Editor**, run the full contents of `lib/schema.sql`. This creates:
    - `transactions` — with RLS (each user sees only their own rows)
    - `balance_snapshots` — with RLS
-   - `wealth_manual` — with RLS
+   - `wealth_manual` — with RLS; also used as a key-value store for persisting OAuth tokens and manual wealth values
    - `user_profiles` — stores `role: user | admin`
+   - A `prevent_role_escalation` trigger that blocks any authenticated client from changing their own role
    - A trigger that auto-creates a profile for every new signup
 3. In **Project Settings → API**, copy:
    - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
@@ -20,6 +21,8 @@ A multi-user PWA that auto-captures Indian bank transactions from SMS (via iOS S
 4. In **Authentication → URL Configuration**, set:
    - **Site URL**: `http://localhost:3000` (for local dev)
    - Add your production domain (e.g. `https://your-site.netlify.app`) to **Redirect URLs** before deploying
+
+> Re-running `schema.sql` on an existing project is safe — all `CREATE` statements are idempotent and RLS policies use `DROP IF EXISTS` before re-creating.
 
 ---
 
@@ -33,11 +36,13 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_KEY=your-service-role-key
 API_SECRET_KEY=pick-any-strong-random-string   # openssl rand -hex 16
 
-# Admin account — created via seed script
+# Admin account — created via seed script below
+# ADMIN_EMAIL is server-only and never in the client bundle
 ADMIN_EMAIL=you@example.com
 ADMIN_PASSWORD=change-me-before-deploying
 
-# Restrict which emails may trigger the SMS/email webhooks (optional but recommended)
+# Restrict which emails may trigger the SMS/email webhooks (comma-separated).
+# If unset, the webhook endpoints return 503.
 SMS_WEBHOOK_ALLOWED_EMAILS=you@example.com
 EMAIL_WEBHOOK_ALLOWED_EMAILS=you@example.com
 
@@ -45,13 +50,17 @@ EMAIL_WEBHOOK_ALLOWED_EMAILS=you@example.com
 ZERODHA_API_KEY=
 ZERODHA_API_SECRET=
 
-# CoinDCX (optional)
+# CoinDCX (optional — credentials are single-tenant)
 COINDCX_API_KEY=
 COINDCX_API_SECRET=
-COINDCX_OWNER_EMAIL=    # email of the user who owns the CoinDCX account
+# Only this email can access the CoinDCX endpoint.
+# Falls back to NEXT_PUBLIC_WEALTH_USER_EMAILS if not set.
+COINDCX_OWNER_EMAIL=
 ```
 
 > **Never commit `.env.local` to git** — it's already in `.gitignore`.
+>
+> Remove any `NEXT_PUBLIC_ADMIN_EMAIL` from old setups — it is no longer used.
 
 ---
 
@@ -74,7 +83,7 @@ See [NETLIFY_DEPLOY.md](NETLIFY_DEPLOY.md) for the full guide. Short version:
 1. Push this repo to GitHub.
 2. Import the project at [netlify.com](https://netlify.com).
 3. Build command: `npm run build` | Publish directory: `.next`
-4. Add all environment variables from `.env.local`.
+4. Add all environment variables from `.env.local` (including webhook allowlists).
 5. Deploy. Your live URL will be `https://your-project.netlify.app`.
 6. Add your Netlify URL to **Supabase → Authentication → URL Configuration → Redirect URLs**.
 7. Run `node scripts/seed-admin.mjs` once pointing at your production Supabase project.
@@ -101,6 +110,8 @@ This shortcut fires whenever a bank SMS arrives and sends it to FinTrack.
      }
      ```
 6. Tap **Done**. Repeat for each bank sender.
+
+> The endpoint only processes requests from emails listed in `SMS_WEBHOOK_ALLOWED_EMAILS`. If that variable is unset, it returns `503`.
 
 ---
 
@@ -154,6 +165,8 @@ function createTrigger() {
 }
 ```
 
+> The endpoint only processes requests from emails listed in `EMAIL_WEBHOOK_ALLOWED_EMAILS`. If that variable is unset, it returns `503`.
+
 ---
 
 ## 7. Local Development
@@ -175,7 +188,7 @@ Open [http://localhost:3000](http://localhost:3000) and log in with your `ADMIN_
 | Category   | Use for                           |
 |------------|-----------------------------------|
 | Food       | Restaurants, groceries, Zomato    |
-| Transport  | Uber, Ola, fuel, metro             |
+| Transport  | Uber, Ola, fuel, metro            |
 | Shopping   | Amazon, Flipkart, retail          |
 | Bills      | Electricity, phone, subscriptions |
 | Salary     | Monthly salary credit             |
@@ -186,7 +199,7 @@ Open [http://localhost:3000](http://localhost:3000) and log in with your `ADMIN_
 
 ## 9. API Reference
 
-All data endpoints require an active session (cookie set by Supabase Auth). The SMS/email webhooks use `api_key` instead.
+All data endpoints require an active session (cookie set by Supabase Auth). The SMS/email webhooks use `api_key` in the request body instead.
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
@@ -196,9 +209,14 @@ All data endpoints require an active session (cookie set by Supabase Auth). The 
 | `POST` | `/api/transactions` | Session | Add manual transaction |
 | `DELETE` | `/api/transactions/[id]` | Session | Delete transaction |
 | `GET` | `/api/balance` | Session | Get balance snapshots |
-| `GET` | `/api/auth/is-admin` | Session | Check if caller is admin |
+| `GET` | `/api/auth/is-admin` | Session | Check if caller is admin (server-only `ADMIN_EMAIL`) |
 | `GET` | `/api/admin/stats` | Admin session | Platform-wide stats |
 | `GET` | `/api/admin/users` | Admin session | List all users |
+| `GET` | `/api/wealth/zerodha` | Session | Zerodha equity/ETF holdings with bucket breakdown |
+| `GET` | `/api/wealth/zerodha?type=mf` | Session | Zerodha MF holdings with bucket breakdown |
+| `GET` | `/api/wealth/coindcx` | Session (`COINDCX_OWNER_EMAIL`) | CoinDCX crypto holdings |
+| `GET` | `/api/wealth/indmoney` | Session | INDmoney US stock holdings |
+| `GET` | `/api/wealth/manual` | Session | Manual wealth entries |
 
 ### GET /api/transactions query params
 

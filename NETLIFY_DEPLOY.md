@@ -4,7 +4,7 @@
 
 This is a **Next.js** app connected to **Supabase** (database + auth). This guide covers:
 - One-time setup to deploy to Netlify
-- Required environment variables (including auth variables added in recent commits)
+- All required environment variables (including new auth and webhook variables)
 - Supabase Auth configuration for production
 - Auto-deploy on every GitHub push
 - Troubleshooting common errors
@@ -66,24 +66,26 @@ git push -u origin master
 
 Your app will **crash at runtime** without these. Click **"Show advanced"** → **"New variable"** for each:
 
-| Key | Value |
-|-----|-------|
-| `NEXT_PUBLIC_SUPABASE_URL` | your Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | your Supabase anon/public key |
-| `SUPABASE_SERVICE_KEY` | your Supabase service role key |
-| `API_SECRET_KEY` | your internal API secret (`openssl rand -hex 16`) |
-| `ADMIN_EMAIL` | email address for the admin account |
-| `ADMIN_PASSWORD` | admin password — use something strong, not the example default |
-| `SMS_WEBHOOK_ALLOWED_EMAILS` | comma-separated emails allowed to use the SMS webhook |
-| `EMAIL_WEBHOOK_ALLOWED_EMAILS` | comma-separated emails allowed to use the email webhook |
-| `COINDCX_API_KEY` | your CoinDCX API key (optional) |
-| `COINDCX_API_SECRET` | your CoinDCX API secret (optional) |
-| `COINDCX_OWNER_EMAIL` | email of the user who owns the CoinDCX account (optional) |
-| `ZERODHA_API_KEY` | your Zerodha API key (optional) |
-| `ZERODHA_API_SECRET` | your Zerodha API secret (optional) |
-| `NEXT_PUBLIC_APP_ENV` | `prod` |
+| Key | Value | Notes |
+|-----|-------|-------|
+| `NEXT_PUBLIC_SUPABASE_URL` | your Supabase project URL | |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | your Supabase anon/public key | |
+| `SUPABASE_SERVICE_KEY` | your Supabase service role key | Server-only — never exposed to the browser |
+| `API_SECRET_KEY` | your internal API secret | `openssl rand -hex 16` |
+| `ADMIN_EMAIL` | email address for the admin account | Server-only — replaces the old `NEXT_PUBLIC_ADMIN_EMAIL` |
+| `ADMIN_PASSWORD` | admin password | Use something strong, not the example default |
+| `SMS_WEBHOOK_ALLOWED_EMAILS` | comma-separated emails allowed to use the SMS webhook | Endpoint returns 503 if unset |
+| `EMAIL_WEBHOOK_ALLOWED_EMAILS` | comma-separated emails allowed to use the email webhook | Endpoint returns 503 if unset |
+| `COINDCX_API_KEY` | your CoinDCX API key | Optional |
+| `COINDCX_API_SECRET` | your CoinDCX API secret | Optional |
+| `COINDCX_OWNER_EMAIL` | email of the user who owns the CoinDCX account | Optional; falls back to `NEXT_PUBLIC_WEALTH_USER_EMAILS` |
+| `ZERODHA_API_KEY` | your Zerodha API key | Optional |
+| `ZERODHA_API_SECRET` | your Zerodha API secret | Optional |
+| `NEXT_PUBLIC_APP_ENV` | `prod` | |
 
-> Find all current values in your local `.env.local` file. Never commit that file to GitHub.
+> Find the current values in your local `.env.local` file. Never commit that file to GitHub.
+>
+> If you have `NEXT_PUBLIC_ADMIN_EMAIL` set from an older deployment, you can remove it — it is no longer read by the app.
 
 ### To add or update variables later:
 
@@ -108,7 +110,18 @@ Without this step, login redirects and password reset emails will fail in produc
 
 ---
 
-## Part 6 — Zerodha Kite Connect (if using)
+## Part 6 — Run the Schema (if not already done)
+
+If you haven't already run `lib/schema.sql` against your Supabase project:
+
+1. Go to your Supabase project → **SQL Editor**
+2. Paste the full contents of `lib/schema.sql` and run it
+
+This creates all tables, RLS policies, and the `prevent_role_escalation` trigger. Re-running it on an existing database is safe — all statements are idempotent.
+
+---
+
+## Part 7 — Zerodha Kite Connect (if using)
 
 Zerodha only allows OAuth callbacks to explicitly whitelisted URLs.
 
@@ -119,7 +132,7 @@ Zerodha only allows OAuth callbacks to explicitly whitelisted URLs.
 
 ---
 
-## Part 7 — Deploy & Seed Admin
+## Part 8 — Deploy & Seed Admin
 
 1. Click **Deploy site** — wait 2–4 minutes
 2. When it says **Published**, your site is live
@@ -137,7 +150,7 @@ Site configuration → **Site details → Change site name** → e.g. `fintrack-
 
 ---
 
-## Part 8 — Auto-Deploy on Every Push
+## Part 9 — Auto-Deploy on Every Push
 
 No extra setup needed. Every push to `master` triggers a Netlify rebuild automatically (~2 minutes).
 
@@ -168,14 +181,21 @@ Run `npm install` locally and push again.
 Run `npm run build` locally first, fix the errors, then push.
 
 **Site loads but no data / blank page after login**
-- Environment variables are missing. Check Part 4 — verify all keys are present.
+- Environment variables are missing or wrong. Check Part 4 — verify all keys are present.
 - After fixing, trigger a redeploy.
 
 **Login redirects to a blank page or error**
 - Supabase Redirect URLs are not configured. See Part 5.
 
+**SMS or email webhook returns 503**
+- `SMS_WEBHOOK_ALLOWED_EMAILS` or `EMAIL_WEBHOOK_ALLOWED_EMAILS` is not set in your Netlify env vars. Add the comma-separated list of allowed emails and redeploy.
+
 **"Connect Zerodha" fails on the live site**
-- Zerodha redirect URL not whitelisted. See Part 6.
+- Zerodha redirect URL not whitelisted. See Part 7.
+
+**Admin page shows "Forbidden" or redirects away**
+- `ADMIN_EMAIL` env var is missing or doesn't match the logged-in user's email.
+- Make sure you're using the server-only `ADMIN_EMAIL` key, not the old `NEXT_PUBLIC_ADMIN_EMAIL`.
 
 **Build succeeds but site shows old version**
 Hard refresh: `Cmd + Shift + R` (Mac)
@@ -202,7 +222,11 @@ One-time setup:
   1. Push code to GitHub
   2. Sign up at netlify.com with GitHub
   3. Import repo → build: npm run build, publish: .next
-  4. Add all env variables (including ADMIN_EMAIL, ADMIN_PASSWORD)
+  4. Add all env variables:
+       NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
+       SUPABASE_SERVICE_KEY, API_SECRET_KEY,
+       ADMIN_EMAIL, ADMIN_PASSWORD,
+       SMS_WEBHOOK_ALLOWED_EMAILS, EMAIL_WEBHOOK_ALLOWED_EMAILS
   5. Deploy
   6. Configure Supabase Auth → URL Configuration with your Netlify URL
   7. node scripts/seed-admin.mjs  ← creates the admin account
