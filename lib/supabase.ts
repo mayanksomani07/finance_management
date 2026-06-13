@@ -1,6 +1,6 @@
 // Re-exports for backward compatibility — prefer supabase-browser / supabase-server for new code
 export { getSupabaseBrowser as getSupabaseClient } from './supabase-browser';
-export { createAdminClient as createServerClient } from './supabase-server';
+export { createAdminClient } from './supabase-server';
 
 // Legacy named export used by old client-side code
 import { getSupabaseBrowser } from './supabase-browser';

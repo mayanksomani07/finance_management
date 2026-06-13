@@ -51,7 +51,8 @@ export async function GET(req: NextRequest) {
     const { client_id, client_secret } = await getOrRegisterClient(user.id, redirectUri);
     const tokens = await exchangeCode(code, verifier, client_id, client_secret, redirectUri);
     if (!tokens.access_token) {
-      return NextResponse.redirect(`${url.origin}/wealth?indmoney_error=${encodeURIComponent('token_exchange_returned_no_access_token:' + JSON.stringify(tokens))}`);
+      console.error('[indmoney callback] token exchange returned no access_token:', tokens);
+      return NextResponse.redirect(`${url.origin}/wealth?indmoney_error=token_exchange_failed`);
     }
     await storeTokens(user.id, tokens.access_token, tokens.refresh_token, tokens.expires_in);
 

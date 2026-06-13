@@ -30,6 +30,7 @@ create index if not exists transactions_created_idx on transactions(created_at d
 
 alter table transactions enable row level security;
 
+drop policy if exists "users can manage own transactions" on transactions;
 create policy "users can manage own transactions"
   on transactions for all
   using  (auth.uid() = user_id)
@@ -48,6 +49,7 @@ create table if not exists balance_snapshots (
 
 alter table balance_snapshots enable row level security;
 
+drop policy if exists "users can manage own snapshots" on balance_snapshots;
 create policy "users can manage own snapshots"
   on balance_snapshots for all
   using  (auth.uid() = user_id)
@@ -67,6 +69,7 @@ create table if not exists wealth_manual (
 
 alter table wealth_manual enable row level security;
 
+drop policy if exists "users can manage own wealth entries" on wealth_manual;
 create policy "users can manage own wealth entries"
   on wealth_manual for all
   using  (auth.uid() = user_id)
@@ -86,11 +89,39 @@ create table if not exists user_profiles (
 
 alter table user_profiles enable row level security;
 
--- Users can only read/update their own profile
-create policy "users can manage own profile"
-  on user_profiles for all
+-- Users can read/update their own profile but cannot change their role
+drop policy if exists "users can read own profile" on user_profiles;
+create policy "users can read own profile"
+  on user_profiles for select
+  using (auth.uid() = id);
+
+drop policy if exists "users can update own profile" on user_profiles;
+create policy "users can update own profile"
+  on user_profiles for update
   using  (auth.uid() = id)
   with check (auth.uid() = id);
+
+drop policy if exists "users can insert own profile" on user_profiles;
+create policy "users can insert own profile"
+  on user_profiles for insert
+  with check (auth.uid() = id AND role = 'user');
+
+-- Prevent any authenticated client from escalating their own role via UPDATE.
+-- Service-role connections (seed script, admin API) bypass this trigger.
+create or replace function public.prevent_role_escalation()
+returns trigger language plpgsql security definer as $$
+begin
+  if new.role <> old.role then
+    raise exception 'role changes are not permitted';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists no_role_escalation on user_profiles;
+create trigger no_role_escalation
+  before update on user_profiles
+  for each row execute procedure public.prevent_role_escalation();
 
 -- Admin role reads all profiles (for admin dashboard)
 -- We use service key server-side for admin queries — no RLS policy needed there

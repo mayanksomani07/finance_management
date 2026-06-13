@@ -8,7 +8,6 @@
  *   ADMIN_EMAIL       (defaults to admin@gmail.com)
  *   ADMIN_PASSWORD    (defaults to admin@123 — change before deploying!)
  */
-import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
@@ -16,8 +15,13 @@ import { resolve } from 'path';
 const envPath = resolve(process.cwd(), '.env.local');
 const envLines = readFileSync(envPath, 'utf8').split('\n');
 for (const line of envLines) {
-  const [k, ...rest] = line.split('=');
-  if (k && rest.length) process.env[k.trim()] = rest.join('=').trim();
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith('#')) continue;
+  const idx = trimmed.indexOf('=');
+  if (idx === -1) continue;
+  const k = trimmed.slice(0, idx).trim();
+  const v = trimmed.slice(idx + 1).trim();
+  if (k) process.env[k] = v;
 }
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -35,38 +39,71 @@ if (missing.length) {
   process.exit(1);
 }
 
-const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
+const headers = {
+  'apikey': SERVICE_KEY,
+  'Authorization': `Bearer ${SERVICE_KEY}`,
+  'Content-Type': 'application/json',
+};
 
+// ── Step 1: create user via Auth Admin API ───────────────────────────────────
 console.log(`Creating admin user: ${ADMIN_EMAIL}`);
 
-const { data, error } = await supabase.auth.admin.createUser({
-  email: ADMIN_EMAIL,
-  password: ADMIN_PASS,
-  email_confirm: true,
-  user_metadata: { full_name: 'Admin' },
+let userId;
+
+const createRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
+  method: 'POST',
+  headers,
+  body: JSON.stringify({
+    email: ADMIN_EMAIL,
+    password: ADMIN_PASS,
+    email_confirm: true,
+    user_metadata: { full_name: 'Admin' },
+  }),
 });
 
-if (error) {
-  if (error.message.includes('already been registered')) {
-    console.log('Admin user already exists — skipping.');
-  } else {
-    console.error('Error creating admin:', error.message);
+const createBody = await createRes.json();
+
+if (createRes.ok) {
+  userId = createBody.id;
+  console.log(`Admin user created: ${userId}`);
+} else if (createBody.msg?.includes('already been registered') || createBody.code === 'email_exists') {
+  console.log('Admin user already exists — looking up existing user.');
+
+  // List all users and find by email
+  const listRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?per_page=1000`, { headers });
+  const listBody = await listRes.json();
+  if (!listRes.ok) {
+    console.error('Error listing users:', JSON.stringify(listBody));
     process.exit(1);
   }
+  const users = listBody.users ?? listBody;
+  const existing = users.find(u => u.email === ADMIN_EMAIL);
+  if (!existing) {
+    console.error(`Could not find ${ADMIN_EMAIL} in Auth — check ADMIN_EMAIL.`);
+    process.exit(1);
+  }
+  userId = existing.id;
+  console.log(`Found existing user: ${userId}`);
 } else {
-  console.log(`Admin user created: ${data.user.id}`);
+  console.error('Error creating admin:', JSON.stringify(createBody));
+  process.exit(1);
 }
 
-// Set role in user_profiles
-const userId = data?.user?.id ?? (
-  await supabase.from('user_profiles').select('id').eq('email', ADMIN_EMAIL).single()
-).data?.id;
+// ── Step 2: upsert user_profiles row with role=admin ─────────────────────────
+const upsertRes = await fetch(
+  `${SUPABASE_URL}/rest/v1/user_profiles`,
+  {
+    method: 'POST',
+    headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
+    body: JSON.stringify({ id: userId, email: ADMIN_EMAIL, role: 'admin', full_name: 'Admin' }),
+  }
+);
 
-if (userId) {
-  await supabase.from('user_profiles').upsert({ id: userId, email: ADMIN_EMAIL, role: 'admin', full_name: 'Admin' });
-  console.log('Admin profile role set.');
+if (!upsertRes.ok) {
+  const body = await upsertRes.text();
+  console.error('Error setting admin profile:', body);
+  process.exit(1);
 }
 
-console.log('Done. Set ADMIN_EMAIL=' + ADMIN_EMAIL + ' in your .env.local');
+console.log('Admin profile role set to admin.');
+console.log(`Done. You can now log in with ${ADMIN_EMAIL} and visit /admin.`);
