@@ -1,32 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase-server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { getCallerEmail, getAdminEmail } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
-async function getCallerEmail(): Promise<string | null> {
-  const cookieStore = cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll() {},
-      },
-    }
-  );
-  const { data: { user } } = await supabase.auth.getUser();
-  return user?.email ?? null;
-}
-
 export async function GET(_req: NextRequest) {
   const email = await getCallerEmail();
-  if (email !== process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
+  if (!email || email !== getAdminEmail()) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  const adminEmail = getAdminEmail();
   const admin = createAdminClient();
 
   // Total registered users (from auth.users via service key)
@@ -61,6 +45,7 @@ export async function GET(_req: NextRequest) {
     name: (u.user_metadata?.full_name ?? u.user_metadata?.name ?? '—') as string,
     provider: (u.app_metadata?.provider ?? 'email') as string,
     created_at: u.created_at,
+    is_admin: !!adminEmail && u.email === adminEmail,
   }));
 
   // Per-user transaction count only (no amounts — privacy). Fetch all pages.

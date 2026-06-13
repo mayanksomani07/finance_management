@@ -1,24 +1,25 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase-server';
+import { getAuthUser, unauthorized } from '@/lib/auth-server';
+import { isWealthUser } from '@/lib/users';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const db = createServerClient();
-
-  const { data: { user }, error: authError } = await db.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  const auth = await getAuthUser();
+  if (!auth) return unauthorized();
+  const { user, supabase } = auth;
+  if (!isWealthUser(user.email)) {
+    return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
   }
 
-  const { data } = await db
+  const { data } = await supabase
     .from('wealth_manual')
     .select('key')
     .eq('user_id', user.id)
     .like('key', '_indmoney_%');
   const keys = (data ?? []).map(r => r.key);
   if (keys.length) {
-    await db.from('wealth_manual').delete().eq('user_id', user.id).in('key', keys);
+    await supabase.from('wealth_manual').delete().eq('user_id', user.id).in('key', keys);
   }
   return NextResponse.json({ success: true, cleared: keys });
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { getAdminEmail } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,7 +9,11 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
   const rawNext = searchParams.get('next') ?? '/';
-  const next = rawNext.startsWith('/') && !rawNext.startsWith('//') && !rawNext.startsWith('/\\') ? rawNext : '/';
+  // Allowlist: must start with / and not contain a protocol separator (guards against
+  // /%2F, //, /\, and other open-redirect bypasses). Decode once before checking.
+  let decoded = '/';
+  try { decoded = decodeURIComponent(rawNext); } catch { /* malformed — fall back to / */ }
+  const next = decoded.startsWith('/') && !decoded.startsWith('//') && !decoded.startsWith('/\\') ? decoded : '/';
 
   if (code) {
     const cookieStore: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
@@ -30,8 +35,8 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error && data.session) {
-      const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
-      const redirectTo = data.session.user.email === adminEmail ? '/admin' : next;
+      const adminEmail = getAdminEmail();
+      const redirectTo = adminEmail && data.session.user.email === adminEmail ? '/admin' : next;
       const response = NextResponse.redirect(`${origin}${redirectTo}`);
       cookieStore.forEach(({ name, value, options }) =>
         response.cookies.set(name, value, options as Parameters<typeof response.cookies.set>[2])

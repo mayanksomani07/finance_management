@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { callKiteAPI } from '@/lib/kite';
-import { createServerClient } from '@/lib/supabase-server';
+import { getAuthUser, unauthorized } from '@/lib/auth-server';
+import { isWealthUser } from '@/lib/users';
+import { bucketEquity, bucketMF as bucketMFLib, round2 } from '@/lib/etf-buckets';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,208 +24,9 @@ interface KiteMFHolding {
   pnl: number;
 }
 
-// ─── Equity symbol sets ───────────────────────────────────────────────────────
-// Gold ETFs traded on NSE/BSE (as of 2025 — exhaustive list)
-const GOLD_ETF_SYMBOLS = new Set([
-  // Nippon India
-  'GOLDBEES',
-  // SBI
-  'SETFGOLD',
-  // HDFC
-  'HDFCMFGETF', 'HDFCGOLD',
-  // ICICI Prudential
-  'ICICIGOLD',
-  // Kotak
-  'KOTAKGOLD',
-  // Axis
-  'AXISGOLD',
-  // Aditya Birla Sun Life
-  'BSLGOLDETF',
-  // UTI (GOLDETF is the live NSE symbol; GOLDIETF and GOLDSHARE are aliases)
-  'GOLDETF', 'GOLDSHARE', 'GOLDIETF',
-  // Quantum
-  'QGOLDHALF',
-  // Invesco
-  'IVZINGOLD',
-  // LIC MF
-  'LICMFGOLD',
-  // Mirae Asset
-  'MIAETFGOLD',
-  // DSP
-  'DSPGOLDETF',
-  // Tata
-  'TATGOLDETF',
-  // Edelweiss
-  'EBBETFGOLD',
-  // Bandhan (formerly IDFC)
-  'BFNGOLDETF',
-  // Motilal Oswal
-  'MOGOLD',
-  // Baroda BNP Paribas
-  'BARODAGOLD',
-  // HSBC
-  'HSBCGOLDETF',
-  // Union
-  'UNIONGOLD',
-  // 360 ONE (IIFL)
-  '360GOLDETF',
-  // Zerodha
-  'ZGOLD',
-  // Canara Robeco
-  'CANRGOLD',
-  // The Wealth Company (formerly PGIM)
-  'TWCGOLDETF',
-  // Choice
-  'CHOICEGOLD',
-  // NJ
-  'NJGOLDETF',
-  // WhiteOak
-  'WOAETFGOLD',
-]);
-
-// Silver ETFs traded on NSE/BSE (as of 2025 — exhaustive list)
-const SILVER_ETF_SYMBOLS = new Set([
-  // Nippon India (SILVER is the live NSE symbol; SILVERBEES is the older/alternate name)
-  'SILVER', 'SILVERBEES',
-  // SBI
-  'SETFSILVER',
-  // HDFC
-  'HDFCSILVER',
-  // ICICI Prudential
-  'ICICISILVE',
-  // Kotak
-  'KOTAKSILVE',
-  // Axis
-  'AXISILVER',
-  // Mirae Asset
-  'MASILVER',
-  // DSP
-  'DSPSILVETF',
-  // UTI
-  'SILVERIETF',
-  // Aditya Birla Sun Life
-  'BSLSILVETF',
-  // Tata
-  'TATSILVETF',
-  // Motilal Oswal
-  'MOSILVER',
-  // Edelweiss
-  'EBBSILVETF',
-  // Invesco
-  'IVZINSILVE',
-  // Bandhan
-  'BFNSILVETF',
-  // Zerodha
-  'ZSILVER',
-]);
-
-// Foreign/international ETFs traded on NSE/BSE (as of 2025 — exhaustive list)
-const FOREIGN_ETF_SYMBOLS = new Set([
-  // Motilal Oswal — Nasdaq 100
-  'MON100',
-  // Motilal Oswal — Nasdaq Q50 (next 50)
-  'MONQ50',
-  // Mirae Asset — NYSE FANG+
-  'MAFANG',
-  // Motilal Oswal — S&P 500
-  'MAN50',
-  // Mirae Asset — Hang Seng Tech
-  'MAHKTECH',
-  // Nippon India — Hang Seng BeES
-  'HNGSNGBEES',
-  // LIC MF — Nasdaq 100
-  'LICNMID100',
-  // Motilal Oswal S&P 500 Quality
-  'MOQUALITY',
-  // Motilal Oswal S&P 500 Value
-  'MOVALUE',
-  // Motilal Oswal S&P 500 Low Volatility
-  'MOLOW',
-  // Mirae Asset S&P 500 Top 50
-  'MASETF50',
-  // Kotak Nasdaq 100
-  'KTNIFTY10',
-  // HDFC Developed World Indexes FoF (ETF wrapper, if listed)
-  'HDFCNIFTY',
-  // Legacy / alternate symbols that may appear in older portfolios
-  'NASDAQ100', 'N100', 'HANGSENG', 'HNGSNG',
-]);
-
-function bucketEquity(sym: string): 'gold' | 'silver' | 'foreign' | 'equity' {
-  if (GOLD_ETF_SYMBOLS.has(sym))    return 'gold';
-  if (SILVER_ETF_SYMBOLS.has(sym))  return 'silver';
-  if (FOREIGN_ETF_SYMBOLS.has(sym)) return 'foreign';
-  return 'equity';
-}
-
-// ─── MF fund name keyword rules ──────────────────────────────────────────────
-// Ordered: more specific first. First match wins.
-// These patterns match against the fund name as returned by Kite Coin (h.fund field).
-const MF_BUCKET_RULES: Array<{ keywords: string[]; bucket: string }> = [
-  // Silver (must be before GOLD to catch "Gold & Silver" funds — classify as gold)
-  {
-    keywords: ['SILVER ETF', 'SILVER FUND', 'SILVER FOF', 'SILVER SAVINGS'],
-    bucket: 'silver',
-  },
-  // Gold — ETF FoF, Gold Savings Fund, Gold ETF Fund of Fund
-  {
-    keywords: [
-      'GOLD ETF', 'GOLD FUND', 'GOLD SAVINGS', 'GOLD FOF',
-      'GOLD EXCHANGE TRADED', 'GOLD BEES',
-    ],
-    bucket: 'gold',
-  },
-  // International / Foreign — US Fund, Nasdaq FoF, FANG FoF, S&P 500 FoF, etc.
-  // Note: these are Fund-of-Funds invested in foreign ETFs — they are equity for our
-  // purposes (not domestic equity, but still risk-on). Mark as 'foreign' bucket.
-  {
-    keywords: [
-      'NASDAQ', 'FANG', 'S&P 500', 'SP500',
-      'US FUND', 'US EQUITY', 'US TECHNOLOGY', 'US FLEXIBLE', 'US OPPORTUNITIES',
-      ' US ', // catches "Franklin India Feeder - Franklin US Opportunities"
-      'HANG SENG', 'GLOBAL FUND', 'GLOBAL EQUITY', 'INTERNATIONAL FUND',
-      'INTERNATIONAL EQUITY', 'OVERSEAS FUND', 'OVERSEAS EQUITY',
-      'WORLD FUND', 'WORLD EQUITY', 'FEEDER', 'GREATER CHINA', 'ASIA PACIFIC',
-      'JAPAN FUND', 'EUROPE FUND', 'EMERGING MARKETS',
-      'OPPORTUNITIES FUND', // e.g. "Franklin US Opportunities Fund"
-    ],
-    bucket: 'foreign',
-  },
-  // Debt — all sub-categories per SEBI classification
-  {
-    keywords: [
-      'LIQUID', 'OVERNIGHT', 'ULTRA SHORT', 'LOW DURATION',
-      'SHORT DURATION', 'SHORT TERM',
-      'MEDIUM DURATION', 'MEDIUM TERM', 'MEDIUM TO LONG',
-      'LONG DURATION', 'LONG TERM',
-      'DYNAMIC BOND', 'CORPORATE BOND',
-      'CREDIT RISK', 'CREDIT OPPORTUNITIES',
-      'BANKING AND PSU', 'BANKING & PSU',
-      'GILT', 'G-SEC', 'GSEC', 'GOVERNMENT SECURITIES',
-      'CONSTANT DURATION', '10 YEAR',
-      'FLOATER', 'FLOATING RATE',
-      'MONEY MARKET', 'FIXED MATURITY', 'FMP',
-      'DEBT FUND', 'INCOME FUND', 'BOND FUND',
-    ],
-    bucket: 'debt',
-  },
-  // Fallback — equity
-  { keywords: [], bucket: 'equity' },
-];
-
-function bucketMF(fundName: string): 'gold' | 'silver' | 'debt' | 'foreign' | 'equity' {
-  const upper = fundName.toUpperCase();
-  for (const rule of MF_BUCKET_RULES) {
-    if (rule.keywords.length === 0 || rule.keywords.some((k) => upper.includes(k))) {
-      return rule.bucket as 'gold' | 'silver' | 'debt' | 'foreign' | 'equity';
-    }
-  }
-  return 'equity';
-}
+// ETF symbol sets and MF classification are in lib/etf-buckets.ts (shared with zerodha-xlsx)
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
-
-function round2(n: number) { return parseFloat(n.toFixed(2)); }
 
 function sumBucket<T>(items: T[], predicate: (item: T) => boolean, inv: (i: T) => number, cur: (i: T) => number) {
   const filtered = items.filter(predicate);
@@ -236,9 +39,10 @@ function sumBucket<T>(items: T[], predicate: (item: T) => boolean, inv: (i: T) =
 // ─── route ───────────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
-  const supabase = createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  const auth = await getAuthUser();
+  if (!auth) return unauthorized();
+  const { user } = auth;
+  if (!isWealthUser(user.email)) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
 
   const { searchParams } = new URL(req.url);
   const type = searchParams.get('type') ?? 'equity';
@@ -288,7 +92,7 @@ export async function GET(req: NextRequest) {
       ltp:    h.last_price,
       inv:    h.average_price * h.quantity,
       cur:    h.last_price * h.quantity,
-      bucket: bucketMF(h.fund),
+      bucket: bucketMFLib(h.fund),
     }));
 
     const total = {
@@ -312,8 +116,9 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     const isNotConnected = msg === 'not_connected' || msg === 'token_expired' || msg === 'not_configured';
+    if (!isNotConnected) console.error('Kite API error:', err);
     return NextResponse.json(
-      { success: false, error: isNotConnected ? msg : `Kite API: ${msg}` },
+      { success: false, error: isNotConnected ? msg : 'Kite API error' },
       { status: isNotConnected ? 401 : 500 },
     );
   }

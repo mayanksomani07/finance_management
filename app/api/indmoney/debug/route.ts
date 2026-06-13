@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { callMcpTool, isConnected } from '@/lib/indmoney';
-import { createServerClient } from '@/lib/supabase-server';
+import { getAuthUser, unauthorized } from '@/lib/auth-server';
+import { isWealthUser } from '@/lib/users';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,12 +16,19 @@ const INDMONEY_KEYS = [
   `_indmoney_client_redirect_${ENV}`,
 ];
 
-export async function GET() {
-  const supabase = createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+const isProd = process.env.NEXT_PUBLIC_APP_ENV === 'prod' || process.env.NODE_ENV === 'production';
 
-  const { data } = await supabase
+export async function GET() {
+  if (isProd) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  const auth = await getAuthUser();
+  if (!auth) return unauthorized();
+  const { user } = auth;
+  if (!isWealthUser(user.email)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+  const { data } = await auth.supabase
     .from('wealth_manual')
     .select('key, note')
     .eq('user_id', user.id)
@@ -34,13 +42,14 @@ export async function GET() {
   }
 
   const connected = await isConnected(user.id);
-  if (!connected) return NextResponse.json({ stored, error: 'not_connected — tokens missing or refresh failed' });
+  if (!connected) return NextResponse.json({ stored, error: 'not_connected — tokens missing or refresh failed' }, { status: 400 });
 
   try {
     const all = await callMcpTool(user.id, 'networth_holdings', {});
     const usStock = await callMcpTool(user.id, 'networth_holdings', { asset_type: 'US_STOCK' });
     return NextResponse.json({ stored, all, usStock });
   } catch (err) {
-    return NextResponse.json({ stored, error: String(err) });
+    console.error('IndMoney debug error:', err);
+    return NextResponse.json({ stored, error: 'IndMoney API error' }, { status: 500 });
   }
 }

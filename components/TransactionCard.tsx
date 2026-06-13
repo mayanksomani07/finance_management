@@ -19,12 +19,13 @@ const CATEGORY_META: Record<string, { bg: string; text: string; dot: string }> =
 };
 
 const SOURCE_LABEL: Record<string, string> = {
-  sbi: 'SBI', gpay: 'GPay', mobikwik: 'MobiKwik', neft: 'NEFT', manual: 'Manual', email: 'Email',
+  sbi: 'Bank', bank: 'Bank', gpay: 'GPay', mobikwik: 'MobiKwik', neft: 'NEFT', manual: 'Manual', email: 'Email',
 };
 
 function sourceIcon(source: string | null): string {
   switch (source?.toLowerCase()) {
-    case 'sbi': return '🏦';
+    case 'sbi':
+    case 'bank': return '🏦';
     case 'gpay': return '🔵';
     case 'mobikwik': return '👛';
     case 'neft': return '🔄';

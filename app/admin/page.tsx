@@ -19,6 +19,7 @@ interface UserRow {
   provider: string;
   created_at: string;
   tx_count: number;
+  is_admin: boolean;
 }
 
 const PROVIDER_LABEL: Record<string, string> = {
@@ -102,14 +103,16 @@ export default function AdminDashboard() {
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
-  const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? 'admin@gmail.com';
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  useEffect(() => { if (!loading && !isAdmin) router.replace('/'); }, [loading, isAdmin]);
+  useEffect(() => { if (!loading && !isAdmin) router.replace('/'); }, [loading, isAdmin, router]);
 
   function fetchStats() {
     setFetching(true);
+    setFetchError(null);
     fetch('/api/admin/stats').then(r => r.json())
       .then(d => { setKpis(d.kpis); setUsers(d.users); })
+      .catch(err => { console.error('fetchStats error:', err); setFetchError('Failed to load stats. Please refresh.'); })
       .finally(() => setFetching(false));
   }
 
@@ -129,8 +132,9 @@ export default function AdminDashboard() {
   if (loading || fetching) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg)' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-        <div className="animate-spin" style={{ width: 28, height: 28, borderRadius: '50%', border: '2.5px solid var(--border)', borderTopColor: 'var(--accent)' }}/>
-        <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text3)' }}>Loading…</p>
+        {fetchError
+          ? <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--expense)' }}>{fetchError}</p>
+          : <><div className="animate-spin" style={{ width: 28, height: 28, borderRadius: '50%', border: '2.5px solid var(--border)', borderTopColor: 'var(--accent)' }}/><p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text3)' }}>Loading…</p></>}
       </div>
     </div>
   );
@@ -292,7 +296,7 @@ export default function AdminDashboard() {
               const { date, time } = formatJoinDate(u.created_at);
               const [g1, g2] = avatarGradient(u.email);
               const initial = (u.name?.[0] ?? u.email[0]).toUpperCase();
-              const isAdminUser = u.email === ADMIN_EMAIL;
+              const isAdminUser = u.is_admin;
               const isConfirming = confirmId === u.id;
               const isRemoving = removingId === u.id;
 
@@ -473,7 +477,7 @@ export default function AdminDashboard() {
             </div>
             <p style={{ fontSize: 16, fontWeight: 800, textAlign: 'center', color: 'var(--text)', margin: '0 0 4px' }}>Sign out?</p>
             <p style={{ fontSize: 13, textAlign: 'center', color: 'var(--text3)', margin: '0 0 24px', fontWeight: 400 }}>
-              You'll be returned to the login screen. Your data is safely saved.
+              You&apos;ll be returned to the login screen. Your data is safely saved.
             </p>
             <div style={{ display: 'flex', gap: 10 }}>
               <button

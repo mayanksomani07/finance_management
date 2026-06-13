@@ -247,7 +247,7 @@ git add . && git commit -m "your changes" && git push
 Set this up to have bank SMS messages automatically sent to FinTrack.
 
 1. Open **Shortcuts** app → **Automation** → **+** → **Message**
-2. Set **Sender** to your bank's SMS sender ID (e.g. `SBI`, `SBIINB`, `GPAY`, `HDFCBK`)
+2. Set **Sender** to your bank's SMS sender ID (e.g. `HDFCBK`, `ICICIB`, `AXISBK`, `GPAY`)
 3. Enable **Run Immediately** (disable "Ask Before Running")
 4. Add action: **Get Contents of URL**
    - URL: `https://your-project.netlify.app/api/sms`
@@ -286,7 +286,7 @@ function getOrCreateLabel(name) {
 function pollBankEmails() {
   const label = getOrCreateLabel(PROCESSED_LABEL);
   const queries = [
-    'from:(alerts@sbi.co.in OR alerts@hdfcbank.com OR noreply@icicibank.com) subject:(alert OR transaction OR debited OR credited) -label:' + PROCESSED_LABEL,
+    'from:(alerts@hdfcbank.com OR noreply@icicibank.com OR alerts@axisbank.com) subject:(alert OR transaction OR debited OR credited) -label:' + PROCESSED_LABEL,
     'subject:(debited OR credited OR transaction alert) -label:' + PROCESSED_LABEL,
   ];
   const processedIds = new Set();

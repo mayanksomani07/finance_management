@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
-import { createServerClient } from '@/lib/supabase-server';
+import { getAuthUser, unauthorized } from '@/lib/auth-server';
+import { isWealthUser } from '@/lib/users';
+import { isGoldETF, isSilverETF, isForeignETF, bucketMF, round2 } from '@/lib/etf-buckets';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,98 +16,15 @@ export const dynamic = 'force-dynamic';
 
 const EXCLUDE_SYMBOLS = new Set(['1040SML26-F']);
 
-// Gold ETF NSE symbols (exhaustive, 2025)
-const GOLD_ETF_SET = new Set([
-  'GOLDBEES', 'SETFGOLD', 'HDFCMFGETF', 'HDFCGOLD', 'ICICIGOLD', 'KOTAKGOLD',
-  'AXISGOLD', 'BSLGOLDETF', 'GOLDETF', 'GOLDSHARE', 'GOLDIETF', 'QGOLDHALF', 'IVZINGOLD',
-  'LICMFGOLD', 'MIAETFGOLD', 'DSPGOLDETF', 'TATGOLDETF', 'EBBETFGOLD',
-  'BFNGOLDETF', 'MOGOLD', 'BARODAGOLD', 'HSBCGOLDETF', 'UNIONGOLD', '360GOLDETF',
-  'ZGOLD', 'CANRGOLD', 'TWCGOLDETF', 'CHOICEGOLD', 'NJGOLDETF', 'WOAETFGOLD',
-]);
-
-// Silver ETF NSE symbols (exhaustive, 2025)
-const SILVER_ETF_SET = new Set([
-  'SILVER', 'SILVERBEES', 'SETFSILVER', 'HDFCSILVER', 'ICICISILVE', 'KOTAKSILVE', 'AXISILVER',
-  'MASILVER', 'DSPSILVETF', 'SILVERIETF', 'BSLSILVETF', 'TATSILVETF', 'MOSILVER',
-  'EBBSILVETF', 'IVZINSILVE', 'BFNSILVETF', 'ZSILVER',
-]);
-
-// Foreign/international ETF NSE symbols (exhaustive, 2025)
-const FOREIGN_ETF_SET = new Set([
-  'MON100', 'MONQ50', 'MAFANG', 'MAN50', 'MAHKTECH', 'HNGSNGBEES',
-  'LICNMID100', 'MOQUALITY', 'MOVALUE', 'MOLOW', 'MASETF50',
-  // legacy / alternate
-  'NASDAQ100', 'N100', 'HNGSNG',
-]);
-
-function isGoldETF(symbol: string, sector?: string): boolean {
-  const s = symbol.toUpperCase();
-  const sec = (sector ?? '').toUpperCase();
-  // Exact match against known symbols
-  if (GOLD_ETF_SET.has(s)) return true;
-  // Fallback: symbol or sector contains GOLD keyword (catches future launches)
-  return (s.includes('GOLD') || sec.includes('GOLD')) && !isForeignETF(symbol);
-}
-
-function isSilverETF(symbol: string, sector?: string): boolean {
-  const s = symbol.toUpperCase();
-  const sec = (sector ?? '').toUpperCase();
-  if (SILVER_ETF_SET.has(s)) return true;
-  return (s.includes('SILVER') || sec.includes('SILVER')) && !isForeignETF(symbol);
-}
-
 function isGoldSilverETF(symbol: string, sector?: string): boolean {
   return isGoldETF(symbol, sector) || isSilverETF(symbol, sector);
 }
 
-function isForeignETF(symbol: string): boolean {
-  const s = symbol.toUpperCase();
-  if (FOREIGN_ETF_SET.has(s)) return true;
-  // Keyword fallbacks for future launches
-  return (
-    s.includes('MON100') || s.includes('MAFANG') || s.includes('MONQ50') ||
-    s.includes('NASDAQ') || s.includes('HNGSNG') || s.includes('MAHKTECH') ||
-    s.includes('LICNMID') || s.includes('MASETF')
-  );
-}
-
-// For MF: classify by fund name / Instrument Type column.
-// Returns 'gold_silver' for both gold and silver fund-of-funds
-// (the Kite API route separates gold/silver; XLSX keeps them merged as gold_silver for backward compat).
+// Wrapper: XLSX merges gold+silver into 'gold_silver' for backward-compat with the client
 function classifyMF(instrumentType: string, fundName: string): 'equity' | 'gold_silver' | 'debt' {
-  const t = instrumentType.toLowerCase();
-  const n = fundName.toLowerCase();
-
-  // Silver keyword check first (catches "Kotak Silver ETF Fund of Fund", "Axis Silver Fund" etc.)
-  if (
-    n.includes('silver etf') || n.includes('silver fund') || n.includes('silver fof') ||
-    n.includes('silver savings') || t.includes('silver')
-  ) return 'gold_silver';
-
-  // Gold keywords (catches "SBI Gold Fund", "HDFC Gold Savings Fund", "Quantum Gold ETF FoF" etc.)
-  if (
-    n.includes('gold etf') || n.includes('gold fund') || n.includes('gold savings') ||
-    n.includes('gold fof') || n.includes('gold exchange traded') ||
-    t.includes('gold') || t.includes('commodity')
-  ) return 'gold_silver';
-
-  // Debt — all SEBI sub-categories
-  if (
-    t.includes('debt') || t.includes('credit') || t.includes('duration') ||
-    t.includes('liquid') || t.includes('money market') || t.includes('overnight') ||
-    t.includes('banking and psu') || t.includes('gilt') || t.includes('floater') ||
-    n.includes('liquid') || n.includes('overnight') || n.includes('ultra short') ||
-    n.includes('low duration') || n.includes('short duration') || n.includes('short term') ||
-    n.includes('medium duration') || n.includes('medium term') ||
-    n.includes('long duration') || n.includes('long term') ||
-    n.includes('dynamic bond') || n.includes('corporate bond') ||
-    n.includes('credit risk') || n.includes('banking and psu') || n.includes('banking & psu') ||
-    n.includes('gilt') || n.includes('g-sec') || n.includes('gsec') ||
-    n.includes('floating rate') || n.includes('floater') ||
-    n.includes('money market') || n.includes('fixed maturity') || n.includes('fmp') ||
-    n.includes('constant duration') || n.includes('10 year')
-  ) return 'debt';
-
+  const bucket = bucketMF(fundName || instrumentType);
+  if (bucket === 'gold' || bucket === 'silver') return 'gold_silver';
+  if (bucket === 'debt') return 'debt';
   return 'equity';
 }
 
@@ -140,17 +59,18 @@ function emptyResult(): Result {
   };
 }
 
-function round2(n: number) { return parseFloat(n.toFixed(2)); }
-
 export async function POST(req: NextRequest) {
-  const supabase = createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  const auth = await getAuthUser();
+  if (!auth) return unauthorized();
+  if (!isWealthUser(auth.user.email)) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
 
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     if (!file) return NextResponse.json({ success: false, error: 'No file uploaded' }, { status: 400 });
+    if (file.size > 10 * 1024 * 1024) {
+      return NextResponse.json({ success: false, error: 'File too large (max 10 MB)' }, { status: 413 });
+    }
 
     const arrayBuffer = await file.arrayBuffer();
     // raw: true preserves string values and avoids XLSX auto-converting numbers with commas

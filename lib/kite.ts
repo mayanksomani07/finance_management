@@ -1,32 +1,12 @@
 import crypto from 'crypto';
 import { createServerClient } from './supabase-server';
+import { getStoredValue, setStoredValue } from './wealth-store';
 
 // ─── token persistence (Supabase wealth_manual table, same pattern as indmoney) ──
 
 const ENV = process.env.NEXT_PUBLIC_APP_ENV ?? (process.env.NODE_ENV === 'production' ? 'prod' : 'dev');
 const KEY_ACCESS   = `_kite_access_token_${ENV}`;
 const KEY_EXPIRY   = `_kite_token_expiry_${ENV}`;
-
-async function getStoredValue(userId: string, key: string): Promise<string | null> {
-  const db = createServerClient();
-  const { data } = await db
-    .from('wealth_manual')
-    .select('note')
-    .eq('user_id', userId)
-    .eq('key', key)
-    .single();
-  return data?.note ?? null;
-}
-
-async function setStoredValue(userId: string, key: string, value: string): Promise<void> {
-  const db = createServerClient();
-  await db
-    .from('wealth_manual')
-    .upsert(
-      { user_id: userId, key, value: 0, note: value, updated_at: new Date().toISOString() },
-      { onConflict: 'user_id,key' },
-    );
-}
 
 // ─── Kite Connect OAuth helpers ───────────────────────────────────────────────
 // Kite Connect Personal API uses a simpler flow than INDmoney:
@@ -38,11 +18,10 @@ async function setStoredValue(userId: string, key: string, value: string): Promi
 const KITE_BASE = 'https://kite.trade';
 const KITE_API  = 'https://api.kite.trade';
 
-export function buildKiteAuthUrl(): string {
+export function buildKiteAuthUrl(state: string): string {
   const apiKey = process.env.ZERODHA_API_KEY;
   if (!apiKey) throw new Error('ZERODHA_API_KEY not configured');
-  // Kite encodes redirect_uri itself — just pass v=3
-  return `${KITE_BASE}/connect/login?api_key=${apiKey}&v=3`;
+  return `${KITE_BASE}/connect/login?api_key=${apiKey}&v=3&state=${encodeURIComponent(state)}`;
 }
 
 function checksumFor(apiKey: string, requestToken: string, apiSecret: string): string {

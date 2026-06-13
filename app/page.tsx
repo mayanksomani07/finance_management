@@ -1436,6 +1436,7 @@ export default function TransactionsPage() {
   const [showAdd, setShowAdd]         = useState(false);
   const [showFilter, setShowFilter]   = useState(false);
   const [showExport, setShowExport]   = useState(false);
+  const [exportWealth, setExportWealth] = useState<WealthSnapshot>(EMPTY_WEALTH);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [clearError, setClearError] = useState('');
@@ -1481,18 +1482,10 @@ export default function TransactionsPage() {
   }, []);
   const PAGE_SIZE = 20;
 
-  // Load: localStorage first (instant), then merge Supabase (fresh)
   useEffect(() => {
-    // Fetch from Supabase first; only fall back to localStorage if offline.
-    // Do NOT seed from localStorage before the fetch — it has mismatched IDs
-    // (local UUID vs Supabase UUID) that cause double-counting.
     fetchAllTransactions().then(remote => {
-      // Merge any localStorage-only rows (offline-added txs not yet in Supabase)
-      const remoteFps = new Set(remote.map(txFingerprint));
-      const localManual = loadManualTransactions().filter(t => !remoteFps.has(txFingerprint(t)));
-      const merged = [...remote, ...localManual];
-      const remoteManual = merged.filter(r => r.source !== 'excel');
-      const remoteExcel  = merged.filter(r => r.source === 'excel');
+      const remoteManual = remote.filter(r => r.source !== 'excel');
+      const remoteExcel  = remote.filter(r => r.source === 'excel');
       remoteManual.sort((a, b) => b.date.localeCompare(a.date));
       remoteExcel.sort((a, b) => b.date.localeCompare(a.date));
       setManualTxs(remoteManual);
@@ -1636,7 +1629,18 @@ export default function TransactionsPage() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setShowExport(true)}
+              onClick={async () => {
+                if (isWealthUser(user?.email)) {
+                  try {
+                    const { fetchWealthSnapshot } = await import('@/lib/wealthSnapshot');
+                    const snapshot = await fetchWealthSnapshot();
+                    setExportWealth(snapshot);
+                    setShowExport(true);
+                    return;
+                  } catch { /* fall through */ }
+                }
+                setShowExport(true);
+              }}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold active:scale-95 transition-transform"
               style={{ background: 'var(--accent-bg)', color: 'var(--accent)', border: '1.5px solid var(--accent-border)' }}
             >
@@ -1667,20 +1671,18 @@ export default function TransactionsPage() {
               </button>
             )}
             <ThemeToggle />
-            {!showBottomNav && (
-              <button
-                onClick={() => setShowSignOutConfirm(true)}
-                className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-95 transition-all"
-                style={{ background: 'var(--bg2)', border: '1.5px solid var(--border)', color: 'var(--text2)' }}
-                title="Sign out"
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                  <polyline points="16 17 21 12 16 7"/>
-                  <line x1="21" y1="12" x2="9" y2="12"/>
-                </svg>
-              </button>
-            )}
+            <button
+              onClick={() => setShowSignOutConfirm(true)}
+              className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-95 transition-all"
+              style={{ background: 'var(--bg2)', border: '1.5px solid var(--border)', color: 'var(--text2)' }}
+              title="Sign out"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -1830,7 +1832,7 @@ export default function TransactionsPage() {
           </div>
         </div>
       )}
-      {/* Sign-out confirm sheet — for non-wealth users (wealth users use BottomNav confirm) */}
+      {/* Sign-out confirm sheet */}
       {showSignOutConfirm && (
         <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center sm:p-4"
           style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }}
@@ -1869,7 +1871,8 @@ export default function TransactionsPage() {
         <ExportModal
           onClose={() => setShowExport(false)}
           transactions={allRaw}
-          wealth={EMPTY_WEALTH}
+          wealth={exportWealth}
+          showWealthOptions={isWealthUser(user?.email)}
         />
       )}
       {showFilter && (

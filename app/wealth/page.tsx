@@ -623,20 +623,21 @@ function PnlBarChart({ bars }: { bars: PnlBar[] }) {
 
 export default function WealthPage() {
   const { theme } = useTheme();
-  const { user } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (user && !isWealthUser(user.email)) {
+    if (!loading && user && !isWealthUser(user.email)) {
       router.replace('/');
     }
-  }, [user, router]);
+  }, [loading, user, router]);
   const [manual, setManual] = useState<Record<string, ManualData>>({});
   const [equityLive, setEquityLive] = useState<ZerodhaLiveData | null>(null);
   const [mfLive, setMfLive] = useState<ZerodhaLiveData | null>(null);
   const [cryptoLive, setCryptoLive] = useState<CoinLiveData | null>(null);
   const [indmoneyLive, setIndmoneyLive] = useState<IndMoneyLiveData | null>(null);
   const [showExport, setShowExport] = useState(false);
+  const [showSignOut, setShowSignOut] = useState(false);
   const [exportTxs, setExportTxs] = useState<LocalTransaction[]>([]);
   const [loadingManual, setLoadingManual] = useState(true);
   const [loadingEquity, setLoadingEquity] = useState(false);
@@ -677,19 +678,41 @@ export default function WealthPage() {
   }, []);
 
   useEffect(() => {
-    loadManual();
-    loadEquity();
-    loadMf();
-    loadCrypto();
-    loadIndmoney();
-  }, [loadManual, loadEquity, loadMf, loadCrypto, loadIndmoney]);
+    if (!loading && user && isWealthUser(user.email)) {
+      loadManual();
+      loadEquity();
+      loadMf();
+      loadCrypto();
+      loadIndmoney();
+    }
+  }, [loading, user, loadManual, loadEquity, loadMf, loadCrypto, loadIndmoney]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('indmoney_connected') === '1') { loadIndmoney(); window.history.replaceState({}, '', window.location.pathname); }
-    if (params.get('indmoney_error')) { setOauthError(`IND Money: ${decodeURIComponent(params.get('indmoney_error')!)}`); window.history.replaceState({}, '', window.location.pathname); }
+    if (params.get('indmoney_error')) {
+      const INDMONEY_ERRORS: Record<string, string> = {
+        state_mismatch: 'Authentication failed (state mismatch). Please try again.',
+        missing_params: 'Authentication failed (missing parameters). Please try again.',
+        token_exchange_returned_no_access_token: 'Token exchange failed. Please try connecting again.',
+      };
+      const code = params.get('indmoney_error')!;
+      setOauthError(`IND Money: ${INDMONEY_ERRORS[code] ?? 'Connection failed. Please try again.'}`);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
     if (params.get('kite_connected') === '1') { loadEquity(); loadMf(); window.history.replaceState({}, '', window.location.pathname); }
-    if (params.get('kite_error')) { setOauthError(`Zerodha: ${decodeURIComponent(params.get('kite_error')!)}`); window.history.replaceState({}, '', window.location.pathname); }
+    if (params.get('kite_error')) {
+      const KITE_ERRORS: Record<string, string> = {
+        auth_cancelled: 'Authentication was cancelled.',
+        auth_failed: 'Authentication failed. Please try again.',
+        state_mismatch: 'Authentication failed (state mismatch). Please try again.',
+        missing_request_token: 'Authentication failed (missing token). Please try again.',
+        no_access_token: 'Token exchange failed. Please try connecting again.',
+      };
+      const code = params.get('kite_error')!;
+      setOauthError(`Zerodha: ${KITE_ERRORS[code] ?? 'Connection failed. Please try again.'}`);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
   }, [loadIndmoney, loadEquity, loadMf]);
 
   function mv(key: string) { return manual[key]?.value; }
@@ -726,7 +749,7 @@ export default function WealthPage() {
     const results = await Promise.all(saves);
     const failed = results.filter(r => !r.ok).length;
     if (failed > 0) console.error(`saveXlsxResult: ${failed}/${saves.length} saves failed`);
-    loadManual();
+    await loadManual();
   }
 
   // ── resolve values ──────────────────────────────────────────────────────
@@ -858,6 +881,18 @@ export default function WealthPage() {
             <span>📤</span><span>Export</span>
           </button>
           <ThemeToggle />
+          <button
+            onClick={() => setShowSignOut(true)}
+            className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-95 transition-transform"
+            style={{ background: 'var(--bg2)', border: '1.5px solid var(--border)', color: 'var(--text2)' }}
+            title="Sign out"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </button>
         </div>
       </header>
 
@@ -965,7 +1000,7 @@ export default function WealthPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Section title="Bank & Cash" icon={<BankIcon />} badge="Manual" accentColor="var(--clr-bank)"
             current={bankTotal} invested={bankTotal}>
-            <EditableField label="SBI Bank Balance" fieldKey="bank_balance" value={mv('bank_balance')} note={mn('bank_balance')} onSaved={loadManual} />
+            <EditableField label="Bank Balance" fieldKey="bank_balance" value={mv('bank_balance')} note={mn('bank_balance')} onSaved={loadManual} />
             <EditableField label="Cash in Hand" fieldKey="cash_in_hand" value={mv('cash_in_hand')} note={mn('cash_in_hand')} onSaved={loadManual} />
             <EditableField label="Mobikwik Wallet" fieldKey="mobikwik" value={mv('mobikwik')} note={mn('mobikwik')} onSaved={loadManual} />
             {bankTotal > 0 && (
@@ -1124,7 +1159,7 @@ export default function WealthPage() {
           ) : (
             <>
               {indmoneyLive?.error && indmoneyLive.error !== 'not_connected' && (
-                <p className="text-[10px] mb-1" style={{ color: 'var(--expense)' }}>Error: {indmoneyLive.error}</p>
+                <p className="text-[10px] mb-1" style={{ color: 'var(--expense)' }}>Error: Live data unavailable. Please reconnect.</p>
               )}
               <div className="mb-3 p-4 rounded-2xl flex flex-col gap-3" style={{ background: 'color-mix(in srgb, var(--clr-indmoney) 6%, var(--card))', border: '1.5px solid color-mix(in srgb, var(--clr-indmoney) 40%, var(--border))' }}>
                 <div>
@@ -1174,7 +1209,7 @@ export default function WealthPage() {
                 <p className="text-[10px] mb-1" style={{ color: 'var(--text2)' }}>
                   {cryptoLive.error === 'not_configured'
                     ? 'Add COINDCX_API_KEY + COINDCX_API_SECRET to .env.local for live value.'
-                    : `API: ${cryptoLive.error}`}
+                    : 'CoinDCX API unavailable. Enter values manually below.'}
                 </p>
               )}
               <EditableField label="Invested (cost basis)" fieldKey="crypto_invested" value={mv('crypto_invested')} note={mn('crypto_invested')} onSaved={loadManual} />
@@ -1237,13 +1272,61 @@ export default function WealthPage() {
               hint={cryptoLive?.success ? 'Connected — cost basis entered manually' : 'Add COINDCX_API_KEY + COINDCX_API_SECRET'} />
             <ApiRow name="IND Money (Foreign stocks)" active={indmoneyLive?.success} loading={loadingIndmoney}
               hint={indmoneyLive?.success ? 'Connected via mcp.indmoney.com' : 'Click "Connect IND Money" above'} />
-            <ApiRow name="SBI / Mobikwik"            active={false} unavailable hint="No public API — manual entry only" />
+            <ApiRow name="Bank / Mobikwik"            active={false} unavailable hint="No public API — manual entry only" />
             <ApiRow name="Stable Money (bonds/FD)"   active={false} unavailable hint="No public API — manual entry only" />
             <ApiRow name="EPFO / UAN (PF)"           active={false} unavailable hint="No official API — manual entry only" />
           </div>
         </div>
 
       </div>
+
+      {showSignOut && (
+        <div
+          className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center sm:p-4"
+          style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }}
+          onClick={() => setShowSignOut(false)}
+        >
+          <div
+            className="w-full max-w-sm mx-auto rounded-t-3xl sm:rounded-3xl p-6"
+            style={{
+              background: 'var(--card)',
+              border: '1px solid var(--border)',
+              boxShadow: '0 -16px 64px rgba(0,0,0,0.35)',
+              paddingBottom: 'max(24px, env(safe-area-inset-bottom, 24px))',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{ background: 'rgba(108,99,255,0.10)', border: '1.5px solid rgba(108,99,255,0.22)' }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </div>
+            <h3 className="text-base font-extrabold text-center mb-1" style={{ color: 'var(--text)' }}>Sign out?</h3>
+            <p className="text-xs text-center mb-6" style={{ color: 'var(--text3)' }}>
+              You&apos;ll be returned to the login screen. Your data is safely saved.
+            </p>
+            <div className="flex gap-2.5">
+              <button
+                onClick={() => setShowSignOut(false)}
+                className="flex-1 py-3 rounded-2xl text-sm font-bold transition-all active:scale-[0.98]"
+                style={{ background: 'var(--bg2)', color: 'var(--text2)', border: '1.5px solid var(--border)' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={signOut}
+                className="flex-1 py-3 rounded-2xl text-sm font-extrabold transition-all active:scale-[0.98]"
+                style={{ background: 'linear-gradient(135deg, var(--accent), #8b5cf6)', color: '#fff', boxShadow: '0 4px 16px rgba(108,99,255,0.35)' }}
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showExport && (() => {
         const wealthSnapshot: WealthSnapshot = {
@@ -1271,6 +1354,7 @@ export default function WealthPage() {
             onClose={() => setShowExport(false)}
             transactions={exportTxs}
             wealth={wealthSnapshot}
+            showWealthOptions={true}
           />
         );
       })()}

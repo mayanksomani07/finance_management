@@ -22,11 +22,16 @@ for (const line of envLines) {
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY;
-const ADMIN_EMAIL  = process.env.ADMIN_EMAIL    ?? 'admin@gmail.com';
-const ADMIN_PASS   = process.env.ADMIN_PASSWORD ?? 'admin@123';
+const ADMIN_EMAIL  = process.env.ADMIN_EMAIL;
+const ADMIN_PASS   = process.env.ADMIN_PASSWORD;
 
-if (!SUPABASE_URL || !SERVICE_KEY) {
-  console.error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_KEY in .env.local');
+const missing = [];
+if (!SUPABASE_URL) missing.push('NEXT_PUBLIC_SUPABASE_URL');
+if (!SERVICE_KEY)  missing.push('SUPABASE_SERVICE_KEY');
+if (!ADMIN_EMAIL)  missing.push('ADMIN_EMAIL');
+if (!ADMIN_PASS)   missing.push('ADMIN_PASSWORD');
+if (missing.length) {
+  console.error('Missing required env vars in .env.local:', missing.join(', '));
   process.exit(1);
 }
 
@@ -64,4 +69,4 @@ if (userId) {
   console.log('Admin profile role set.');
 }
 
-console.log('Done. Set NEXT_PUBLIC_ADMIN_EMAIL=' + ADMIN_EMAIL + ' in your .env.local');
+console.log('Done. Set ADMIN_EMAIL=' + ADMIN_EMAIL + ' in your .env.local');

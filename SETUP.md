@@ -65,7 +65,7 @@ This shortcut fires whenever a bank SMS arrives and sends it to your app.
 
 1. Open the **Shortcuts** app on your iPhone.
 2. Tap **Automation** → **+** → **Message**.
-3. Set **Sender** to your bank's SMS sender (e.g. `SBI`, `GPAY`, `SBIINB`).
+3. Set **Sender** to your bank's SMS sender (e.g. `HDFCBK`, `ICICIB`, `AXISBK`, `GPAY`).
 4. Enable "Run Immediately" (turn off "Ask Before Running").
 5. Add the following actions:
 
@@ -108,7 +108,7 @@ function pollBankEmails() {
 
   // Search for bank alert emails not yet processed
   const queries = [
-    'from:(alerts@sbi.co.in OR alerts@hdfcbank.com OR noreply@icicibank.com) subject:(alert OR transaction OR debited OR credited) -label:' + PROCESSED_LABEL,
+    'from:(alerts@hdfcbank.com OR noreply@icicibank.com OR alerts@axisbank.com) subject:(alert OR transaction OR debited OR credited) -label:' + PROCESSED_LABEL,
     'subject:(debited OR credited OR transaction alert) -label:' + PROCESSED_LABEL,
   ];
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase-server';
+import { getAuthUser, unauthorized } from '@/lib/auth-server';
+import { isWealthUser } from '@/lib/users';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,9 +19,9 @@ interface ParsedHolding {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  const auth = await getAuthUser();
+  if (!auth) return unauthorized();
+  if (!isWealthUser(auth.user.email)) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
 
   try {
     const formData = await req.formData();
@@ -29,6 +30,9 @@ export async function POST(req: NextRequest) {
 
     if (!file) {
       return NextResponse.json({ success: false, error: 'No file uploaded' }, { status: 400 });
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      return NextResponse.json({ success: false, error: 'File too large (max 10 MB)' }, { status: 413 });
     }
 
     const text = await file.text();

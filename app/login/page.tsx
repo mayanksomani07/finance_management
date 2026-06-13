@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import type { Session } from '@supabase/supabase-js';
@@ -55,17 +55,29 @@ function LoginPageInner() {
   const [resendCooldown, setResendCooldown] = useState(0);
   const [pwFocused, setPwFocused]     = useState(false);
 
-  const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? '';
+  // Admin status is resolved server-side (ADMIN_EMAIL is server-only) — send the
+  // admin to /admin, everyone else to /. Defaults to / if the check fails.
+  // redirectingRef prevents the double-fire from getSession + onAuthStateChange.
+  const redirectingRef = useRef(false);
+  async function redirectAfterAuth() {
+    if (redirectingRef.current) return;
+    redirectingRef.current = true;
+    try {
+      const res = await fetch('/api/auth/is-admin');
+      const { isAdmin } = await res.json() as { isAdmin: boolean };
+      router.replace(isAdmin ? '/admin' : '/');
+    } catch {
+      router.replace('/');
+    }
+  }
 
   useEffect(() => {
     const auth = supabase.auth;
-    const adminEmail = ADMIN_EMAIL;
     auth.getSession().then((res: { data: { session: Session | null } }) => {
-      const s = res.data.session;
-      if (s) router.replace(adminEmail && s.user.email === adminEmail ? '/admin' : '/');
+      if (res.data.session) void redirectAfterAuth();
     });
     const { data: { subscription } } = auth.onAuthStateChange((_event: string, session: Session | null) => {
-      if (session) router.replace(adminEmail && session.user.email === adminEmail ? '/admin' : '/');
+      if (session) void redirectAfterAuth();
     });
     return () => subscription.unsubscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -115,7 +127,7 @@ function LoginPageInner() {
       }
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) { setErr('Incorrect password. Please check and try again.'); setLoading(null); return; }
-      if (data.session) router.replace(ADMIN_EMAIL && data.session.user.email === ADMIN_EMAIL ? '/admin' : '/');
+      if (data.session) await redirectAfterAuth();
     } catch {
       setErr('Could not sign in. Please check your connection and try again.');
       setLoading(null);
@@ -129,10 +141,8 @@ function LoginPageInner() {
     if (failedRules.length) { setErr('Password must meet all requirements below.'); setPwFocused(true); return; }
     setLoading('submit');
     try {
-      if (ADMIN_EMAIL && email.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-        setErr('This email is reserved and cannot be used to create an account.');
-        setLoading(null); return;
-      }
+      // The admin account already exists, so the existing-account check below
+      // (checkEmail) blocks signing up with it — no separate reserved-email guard needed.
       const exists = await checkEmail(email);
       if (exists) {
         setErr('An account with this email already exists.', { label: 'Sign in instead', screen: 'login' });
@@ -142,7 +152,7 @@ function LoginPageInner() {
         email, password,
         options: { data: { full_name: name.trim() }, emailRedirectTo: `${location.origin}/auth/callback` },
       });
-      if (error) { setErr(error.message); }
+      if (error) { setErr('Could not create your account. Please try again.'); }
       else { setScreen('verify'); startResendCooldown(); }
     } catch {
       setErr('Could not create your account. Please check your connection and try again.');

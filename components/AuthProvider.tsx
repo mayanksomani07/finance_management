@@ -25,6 +25,7 @@ const AuthContext = createContext<AuthContextValue>({
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const supabase = getSupabaseBrowser();
   const router = useRouter();
@@ -33,6 +34,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // new login (SIGNED_IN with no prior session) from a token refresh.
   const hadSessionRef = useRef(false);
 
+  // Resolve admin status from the server (ADMIN_EMAIL is server-only, not in the
+  // client bundle) rather than comparing against a NEXT_PUBLIC_ env var.
+  async function refreshIsAdmin(s: Session | null) {
+    if (!s?.user) { setIsAdmin(false); return; }
+    try {
+      const res = await fetch('/api/auth/is-admin');
+      const { isAdmin: admin } = await res.json() as { isAdmin: boolean };
+      setIsAdmin(!!admin);
+    } catch {
+      setIsAdmin(false);
+    }
+  }
+
   useEffect(() => {
     const auth = supabase.auth;
     auth.getSession().then((res: { data: { session: Session | null } }) => {
@@ -40,6 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (s) hadSessionRef.current = true;
       setSession(s);
       if (s?.user) setLocalUserId(s.user.id);
+      void refreshIsAdmin(s);
       setLoading(false);
     });
 
@@ -53,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(s);
         if (s?.user) setLocalUserId(s.user.id);
         else clearLocalUserId();
+        void refreshIsAdmin(s);
         setLoading(false);
       }
     );
@@ -61,8 +77,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // supabase is a singleton from getSupabaseBrowser() — stable across renders
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const isAdmin = session?.user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 
   async function signOut() {
     resetTheme();

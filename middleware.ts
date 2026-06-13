@@ -25,7 +25,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Public paths — always accessible
-  const isPublic = pathname.startsWith('/login') || pathname.startsWith('/auth') || pathname.startsWith('/reset-password') || pathname.startsWith('/api/auth/');
+  const isPublic = pathname.startsWith('/login') || pathname.startsWith('/auth') || pathname.startsWith('/reset-password') || pathname === '/api/auth/is-admin' || pathname === '/api/auth/check-email';
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
@@ -33,7 +33,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  const isAdmin = user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+  // ADMIN_EMAIL is server-only; middleware runs server-side so it can read it directly.
+  const adminEmail = process.env.ADMIN_EMAIL ?? '';
+  const isAdmin = !!adminEmail && user?.email === adminEmail;
 
   // Admin-only routes
   if (pathname.startsWith('/admin') && !isAdmin) {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
-import { createServerClient } from '@/lib/supabase-server';
+import { getAuthUser, unauthorized } from '@/lib/auth-server';
 import { isWealthUser } from '@/lib/users';
 
 export const dynamic = 'force-dynamic';
@@ -54,10 +54,17 @@ async function postAuth(apiKey: string, apiSecret: string, endpoint: string, ext
 }
 
 export async function GET() {
-  const supabase = createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-  if (!isWealthUser(user.email)) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+  const auth = await getAuthUser();
+  if (!auth) return unauthorized();
+  const { user } = auth;
+  // CoinDCX credentials are a single set of env vars — only the designated owner
+  // can fetch this data. Fall back to wealth-user gate if no specific owner configured.
+  const coindcxOwner = (process.env.COINDCX_OWNER_EMAIL ?? '').trim().toLowerCase();
+  const callerEmail = (user.email ?? '').toLowerCase();
+  const allowed = coindcxOwner
+    ? callerEmail === coindcxOwner
+    : isWealthUser(user.email);
+  if (!allowed) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
 
   const apiKey = process.env.COINDCX_API_KEY;
   const apiSecret = process.env.COINDCX_API_SECRET;
@@ -115,6 +122,7 @@ export async function GET() {
       fetched_at: new Date().toISOString(),
     });
   } catch (err) {
-    return NextResponse.json({ success: false, error: String(err) }, { status: 500 });
+    console.error('CoinDCX error:', err);
+    return NextResponse.json({ success: false, error: 'CoinDCX API error' }, { status: 500 });
   }
 }

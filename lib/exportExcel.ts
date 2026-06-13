@@ -1026,7 +1026,7 @@ async function buildWealthSheet(wb: import('exceljs').Workbook, w: WealthSnapsho
   if (w.pfInvested > 0 || w.pfCurrent > 0)
     assetDefs.push({ label: '🔒  Provident Fund (PF / EPFO)', inv: w.pfInvested, cur: w.pfCurrent, color: P.green, pale: P.greenPale });
   if (w.bankTotal > 0)
-    assetDefs.push({ label: '🏦  Bank & Cash (SBI + Wallet)', inv: w.bankTotal, cur: w.bankTotal, color: P.slate, pale: P.slatePale });
+    assetDefs.push({ label: '🏦  Bank & Cash', inv: w.bankTotal, cur: w.bankTotal, color: P.slate, pale: P.slatePale });
 
   let r = 4;
   for (const a of assetDefs) {

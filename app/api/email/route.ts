@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { parseSMS } from '@/lib/sms-parser';
 import { createAdminClient } from '@/lib/supabase-server';
 
@@ -15,16 +16,37 @@ export async function POST(req: NextRequest) {
     };
 
     // Validate API key
-    if (!api_key || api_key !== process.env.API_SECRET_KEY) {
+    const secret = process.env.API_SECRET_KEY ?? '';
+    const keyMatch = secret.length > 0 &&
+      !!api_key &&
+      api_key.length === secret.length &&
+      crypto.timingSafeEqual(Buffer.from(api_key), Buffer.from(secret));
+    if (!keyMatch) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     if (!emailBody || typeof emailBody !== 'string') {
       return NextResponse.json({ success: false, error: 'body is required' }, { status: 400 });
     }
+    if (emailBody.length > 5000) {
+      return NextResponse.json({ success: false, error: 'body too long (max 5000 chars)' }, { status: 400 });
+    }
+    if (subject && subject.length > 500) {
+      return NextResponse.json({ success: false, error: 'subject too long (max 500 chars)' }, { status: 400 });
+    }
 
     if (!user_id || typeof user_id !== 'string') {
       return NextResponse.json({ success: false, error: 'user_id is required' }, { status: 400 });
+    }
+
+    // Restrict user_id to the configured owner(s) — this endpoint uses a shared
+    // API key so we must not allow arbitrary user_id injection.
+    // Fails closed: if EMAIL_WEBHOOK_ALLOWED_EMAILS is not set, all requests are rejected.
+    const allowedEmails = (process.env.EMAIL_WEBHOOK_ALLOWED_EMAILS ?? '')
+      .split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+
+    if (allowedEmails.length === 0) {
+      return NextResponse.json({ success: false, error: 'Webhook not configured — set EMAIL_WEBHOOK_ALLOWED_EMAILS' }, { status: 503 });
     }
 
     const supabase = createAdminClient();
@@ -33,6 +55,11 @@ export async function POST(req: NextRequest) {
     const { data: authUser, error: authErr } = await supabase.auth.admin.getUserById(user_id);
     if (authErr || !authUser?.user) {
       return NextResponse.json({ success: false, error: 'Invalid user_id' }, { status: 400 });
+    }
+
+    // Scope check: only allow injecting for whitelisted email owners
+    if (!allowedEmails.includes((authUser.user.email ?? '').toLowerCase())) {
+      return NextResponse.json({ success: false, error: 'user_id not permitted for this endpoint' }, { status: 403 });
     }
 
     // Use the combined subject + body text for parsing
@@ -46,7 +73,7 @@ export async function POST(req: NextRequest) {
     const { data, error } = await supabase
       .from('transactions')
       .insert({
-        user_id,
+        user_id: authUser.user.id,
         transaction_at: parsed.transaction_at.toISOString(),
         amount: parsed.amount,
         type: parsed.type,

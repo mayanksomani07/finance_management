@@ -23,6 +23,7 @@ export default function BalanceCheck({ lastUpdated }: BalanceCheckProps) {
   const [inputVal, setInputVal] = useState('');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch('/api/balance');
@@ -35,16 +36,26 @@ export default function BalanceCheck({ lastUpdated }: BalanceCheckProps) {
   async function saveSnapshot() {
     if (!inputVal) return;
     setSaving(true);
-    await fetch('/api/balance', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ actual_balance: parseFloat(inputVal), note }),
-    });
-    setSaving(false);
-    setShowInput(false);
-    setInputVal('');
-    setNote('');
-    load();
+    setSaveError(null);
+    try {
+      const res = await fetch('/api/balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actual_balance: parseFloat(inputVal), note }),
+      });
+      if (!res.ok) {
+        setSaveError('Failed to save. Please try again.');
+        return;
+      }
+      setShowInput(false);
+      setInputVal('');
+      setNote('');
+      load();
+    } catch {
+      setSaveError('Failed to save. Please check your connection.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   const hasDrift = data?.computed != null && data?.snapshot != null;
@@ -80,12 +91,13 @@ export default function BalanceCheck({ lastUpdated }: BalanceCheckProps) {
           </div>
           <input
             type="text"
-            placeholder="Note (optional, e.g. 'SBI as of today')"
+            placeholder="Note (optional, e.g. 'Bank balance as of today')"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             className="w-full rounded-xl px-3 py-2.5 text-sm outline-none"
             style={{ backgroundColor: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)' }}
           />
+          {saveError && <p className="text-xs" style={{ color: 'var(--expense)' }}>{saveError}</p>}
           <button
             onClick={saveSnapshot}
             disabled={saving || !inputVal}

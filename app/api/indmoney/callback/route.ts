@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exchangeCode, storeTokens, getOrRegisterClient } from '@/lib/indmoney';
-import { createServerClient } from '@/lib/supabase-server';
+import { getAuthUser } from '@/lib/auth-server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
-async function popPKCEVerifier(db: ReturnType<typeof createServerClient>, userId: string, state: string): Promise<string | null> {
+async function popPKCEVerifier(db: SupabaseClient, userId: string, state: string): Promise<string | null> {
   const key = `_pkce_state_${state}`;
   const { data } = await db
     .from('wealth_manual')
@@ -34,14 +35,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${url.origin}/wealth?indmoney_error=missing_params`);
   }
 
-  const supabase = createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    // getUser() verifies with the Supabase auth server — if it fails the session is
-    // genuinely invalid. Redirect to login; the PKCE state entry persists in the DB
-    // so the user can retry immediately after re-authenticating.
+  const auth = await getAuthUser();
+  if (!auth) {
     return NextResponse.redirect(`${url.origin}/login?redirect=/wealth`);
   }
+  const { user, supabase } = auth;
 
   try {
     const redirectUri = `${url.origin}/api/indmoney/callback`;

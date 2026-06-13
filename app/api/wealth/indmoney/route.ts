@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getUSStocks, isConnected } from '@/lib/indmoney';
-import { createServerClient } from '@/lib/supabase-server';
+import { getAuthUser, unauthorized } from '@/lib/auth-server';
+import { isWealthUser } from '@/lib/users';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const supabase = createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  const auth = await getAuthUser();
+  if (!auth) return unauthorized();
+  const { user } = auth;
+  if (!isWealthUser(user.email)) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
 
   const connected = await isConnected(user.id);
   if (!connected) {
@@ -25,9 +27,10 @@ export async function GET() {
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg === 'not_connected') {
-      return NextResponse.json({ success: false, error: 'not_connected' });
+    const isNotConnected = msg === 'not_connected' || msg === 'token_expired';
+    if (isNotConnected) {
+      return NextResponse.json({ success: false, error: msg }, { status: 401 });
     }
-    return NextResponse.json({ success: false, error: msg });
+    return NextResponse.json({ success: false, error: 'IndMoney API error' }, { status: 500 });
   }
 }

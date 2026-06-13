@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { createServerClient } from './supabase-server';
+import { getStoredValue, setStoredValue } from './wealth-store';
 
 // ─── token persistence (Supabase wealth_manual table reused with special keys) ──
 
@@ -17,27 +17,6 @@ const TOKEN_KEY_CLIENT_REDIRECT = `_indmoney_client_redirect_${ENV}`;
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 // Minimum access token lifetime we'll use even if IndMoney says shorter
 const MIN_ACCESS_TOKEN_TTL_S = 24 * 60 * 60; // 24 hours
-
-async function getStoredValue(userId: string, key: string): Promise<string | null> {
-  const db = createServerClient();
-  const { data } = await db
-    .from('wealth_manual')
-    .select('note')
-    .eq('user_id', userId)
-    .eq('key', key)
-    .single();
-  return data?.note ?? null;
-}
-
-async function setStoredValue(userId: string, key: string, value: string): Promise<void> {
-  const db = createServerClient();
-  await db
-    .from('wealth_manual')
-    .upsert(
-      { user_id: userId, key, value: 0, note: value, updated_at: new Date().toISOString() },
-      { onConflict: 'user_id,key' },
-    );
-}
 
 // ─── PKCE helpers ────────────────────────────────────────────────────────────
 
@@ -177,8 +156,6 @@ export async function getValidAccessToken(userId: string): Promise<string> {
 
 // ─── MCP tool call ────────────────────────────────────────────────────────────
 
-let _rpcId = 1;
-
 async function mcpFetch(token: string, body: object, sessionId?: string): Promise<Response> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -201,7 +178,7 @@ export async function callMcpTool<T = unknown>(userId: string, toolName: string,
 
   const res = await mcpFetch(token, {
     jsonrpc: '2.0',
-    id: _rpcId++,
+    id: crypto.randomUUID(),
     method: 'tools/call',
     params: { name: toolName, arguments: args },
   });

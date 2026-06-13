@@ -5,14 +5,15 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   try {
     // Only allow same-origin calls (login page UX only — not a public enumeration API)
-    const origin = req.headers.get('origin') ?? '';
+    const origin = req.headers.get('origin');
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? '';
-    const normalizedAppUrl = appUrl.replace(/\/$/, '');
-    // If APP_URL is configured, enforce an exact origin match.
-    // If it's not set (local dev without env), fall through — the route is still
-    // protected by SUPABASE_SERVICE_KEY being server-only.
-    if (appUrl && origin && origin !== normalizedAppUrl) {
-      return NextResponse.json({ exists: false }, { status: 403 });
+    // If APP_URL is configured, require origin to be present and match exactly.
+    // If APP_URL is not set (local dev), fall through — protected by SUPABASE_SERVICE_KEY being server-only.
+    if (appUrl) {
+      const normalizedAppUrl = appUrl.replace(/\/$/, '');
+      if (!origin || origin !== normalizedAppUrl) {
+        return NextResponse.json({ exists: false }, { status: 403 });
+      }
     }
 
     const { email } = await req.json();

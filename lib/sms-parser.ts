@@ -43,67 +43,67 @@ function parseDate(str: string): Date {
 export function parseSMS(text: string): ParsedTransaction {
   const t = text.trim();
 
-  // SBI new UPI debit: "Dear UPI user A/C X1234 debited by 500.0 on date 16May26 trf to MERCHANT Ref No 123456 -SBI"
-  const sbiDebitNew = t.match(
+  // Bank new UPI debit: "Dear UPI user A/C X1234 debited by 500.0 on date 16May26 trf to MERCHANT Ref No 123456 -BANK"
+  const bankDebitNew = t.match(
     /A\/C\s+[Xx*]?(\d{4})\s+debited\s+by\s+([\d,.]+)\s+on\s+date\s+(\w+)\s+trf\s+to\s+(.*?)\s+Ref/i
   );
-  if (sbiDebitNew) {
+  if (bankDebitNew) {
     return {
-      amount: parseAmount(sbiDebitNew[2]),
+      amount: parseAmount(bankDebitNew[2]),
       type: 'expense',
-      source: 'sbi',
-      description: `Paid to ${sbiDebitNew[4].trim()}`,
-      account_last4: sbiDebitNew[1],
+      source: 'bank',
+      description: `Paid to ${bankDebitNew[4].trim()}`,
+      account_last4: bankDebitNew[1],
       balance_after: null,
-      transaction_at: parseDate(sbiDebitNew[3]),
+      transaction_at: parseDate(bankDebitNew[3]),
     };
   }
 
-  // SBI new UPI credit: "Dear UPI user A/C X1234 credited by 2000.0 on date 16May26 trf from NAME Ref No 123456 -SBI"
-  const sbiCreditNew = t.match(
+  // Bank new UPI credit: "Dear UPI user A/C X1234 credited by 2000.0 on date 16May26 trf from NAME Ref No 123456 -BANK"
+  const bankCreditNew = t.match(
     /A\/C\s+[Xx*]?(\d{4})\s+credited\s+by\s+([\d,.]+)\s+on\s+date\s+(\w+)\s+trf\s+from\s+(.*?)\s+Ref/i
   );
-  if (sbiCreditNew) {
+  if (bankCreditNew) {
     return {
-      amount: parseAmount(sbiCreditNew[2]),
+      amount: parseAmount(bankCreditNew[2]),
       type: 'income',
-      source: 'sbi',
-      description: `Received from ${sbiCreditNew[4].trim()}`,
-      account_last4: sbiCreditNew[1],
+      source: 'bank',
+      description: `Received from ${bankCreditNew[4].trim()}`,
+      account_last4: bankCreditNew[1],
       balance_after: null,
-      transaction_at: parseDate(sbiCreditNew[3]),
+      transaction_at: parseDate(bankCreditNew[3]),
     };
   }
 
-  // SBI old format debit: "INR 500.00 debited from A/c X1234 on 16-05-26. Info: UPI/GOOGLEPAY"
-  const sbiOldDebit = t.match(
+  // Bank old format debit: "INR 500.00 debited from A/c X1234 on 16-05-26. Info: UPI/GOOGLEPAY"
+  const bankOldDebit = t.match(
     /INR\s+([\d,.]+)\s+debited\s+from\s+A\/c\s+[Xx*]?(\d{4})\s+on\s+([\d\-\/]+)\.?\s*Info:\s*(.*)/i
   );
-  if (sbiOldDebit) {
+  if (bankOldDebit) {
     return {
-      amount: parseAmount(sbiOldDebit[1]),
+      amount: parseAmount(bankOldDebit[1]),
       type: 'expense',
-      source: 'sbi',
-      description: sbiOldDebit[4].trim(),
-      account_last4: sbiOldDebit[2],
+      source: 'bank',
+      description: bankOldDebit[4].trim(),
+      account_last4: bankOldDebit[2],
       balance_after: null,
-      transaction_at: parseDate(sbiOldDebit[3]),
+      transaction_at: parseDate(bankOldDebit[3]),
     };
   }
 
-  // SBI old format credit: "INR 5000.00 credited to A/c X1234 on 16-05-26. Info: NEFT"
-  const sbiOldCredit = t.match(
+  // Bank old format credit: "INR 5000.00 credited to A/c X1234 on 16-05-26. Info: NEFT"
+  const bankOldCredit = t.match(
     /INR\s+([\d,.]+)\s+credited\s+to\s+A\/c\s+[Xx*]?(\d{4})\s+on\s+([\d\-\/]+)\.?\s*Info:\s*(.*)/i
   );
-  if (sbiOldCredit) {
+  if (bankOldCredit) {
     return {
-      amount: parseAmount(sbiOldCredit[1]),
+      amount: parseAmount(bankOldCredit[1]),
       type: 'income',
-      source: 'sbi',
-      description: sbiOldCredit[4].trim(),
-      account_last4: sbiOldCredit[2],
+      source: 'bank',
+      description: bankOldCredit[4].trim(),
+      account_last4: bankOldCredit[2],
       balance_after: null,
-      transaction_at: parseDate(sbiOldCredit[3]),
+      transaction_at: parseDate(bankOldCredit[3]),
     };
   }
 
