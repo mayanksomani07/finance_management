@@ -4,6 +4,8 @@
 
 Beyond day-to-day spending, FinTrack also aggregates your investment portfolio across Zerodha (stocks & mutual funds), CoinDCX (crypto), and INDmoney (US stocks) into a single wealth view, giving you a complete picture of your net financial position.
 
+The app is **multi-user** with full Supabase Auth — each user sees only their own data. An admin dashboard lets you manage users and view platform-wide stats.
+
 The app is installable on iPhone as a PWA and works offline — local data is kept in sync with the cloud database whenever connectivity is restored.
 
 ---
@@ -18,40 +20,50 @@ The app is installable on iPhone as a PWA and works offline — local data is ke
 | **Portfolio aggregation** | Live holdings from Zerodha, CoinDCX, and INDmoney in one place. |
 | **Manual fallback** | Add, edit, or delete transactions yourself when auto-capture isn't available. |
 | **Excel import/export** | Bulk-upload historical transactions or export your data for external analysis. |
+| **Multi-user auth** | Each user logs in with email/password (Supabase Auth). Row-level security ensures complete data isolation. |
+| **Admin dashboard** | Manage users, promote/demote roles, view platform stats at `/admin`. |
 
 ---
 
 ## Features
+
+### Authentication
+
+Login and registration use Supabase Auth (email + password). A password-reset flow is included. On first deploy, seed the admin account:
+
+```bash
+node scripts/seed-admin.mjs
+```
+
+`ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env.local` control which account gets the `admin` role. Once logged in as admin, visit `/admin`.
+
+---
 
 ### Transactions
 
 Every debit and credit from your bank appears here, grouped by date with "Today" / "Yesterday" labels. Each entry shows the category (with emoji), a note, and the INR amount — with a daily P&L line so you can see net cash flow at a glance. The list loads 20 at a time with a **Load more** button showing how many remain.
 
 **Adding a transaction**
-A quick-entry form lets you log anything manually in seconds:
 - Toggle between **Expense** and **Income**
 - Enter an amount — a live INR preview formats it as you type
-- Pick a category from grouped pills (Needs / Wants / Investments for expenses; income has its own group)
+- Pick a category from grouped pills (Needs / Wants / Investments / Income)
 - Add an optional note and set the date (defaults to today)
 
-Duplicate detection runs on submit — if the same date + amount + category already exists, it warns you before saving.
+Duplicate detection warns before saving if the same date + amount + category already exists.
 
 **Filtering**
-Four independent filters work together:
 | Filter | Options |
 |---|---|
 | **Type** | All · Expense · Income |
-| **Category** | Group-level (Need / Want / Investment) or individual sub-category pill |
+| **Category** | Group-level or individual sub-category pill |
 | **Date range** | Today · This Week · This Month · This Year · Custom range · All Time |
 | **Search** | Free-text across notes, sub-category, and category |
-
-An active filter count badge appears on the filter button, and a single **Reset** clears everything.
 
 ---
 
 ### Wealth
 
-A portfolio aggregator that pulls live data from multiple sources into one net-worth view:
+A portfolio aggregator that pulls live data from multiple sources:
 
 | Source | What's shown |
 |---|---|
@@ -61,15 +73,20 @@ A portfolio aggregator that pulls live data from multiple sources into one net-w
 | **INDmoney** | US stocks (via OAuth) |
 | **Manual entries** | Bank balance, cash, FDs, PF, bonds, credit card due, liabilities |
 
-The hero card shows **Net Worth** prominently with Assets, Liabilities, and Invested as sub-stats. Below it:
-- **Donut chart** — allocation by invested amount; hover to see asset name, value, and percentage
-- **P&L bar chart** — Invested vs Current side-by-side for each asset class (Equity, MF, Foreign, Gold, Silver, Crypto, Debt, PF) with an overall P&L figure
+The hero card shows **Net Worth** with Assets, Liabilities, and Invested as sub-stats, plus a donut chart and P&L bar chart per asset class.
+
+---
+
+### Admin Dashboard (`/admin`)
+
+Accessible only to users with `role: admin` in `user_profiles`:
+- Platform stats — total users, total transactions, recent signups
+- User table — list all registered users with email, role, and join date
+- Role management — promote or demote users
 
 ---
 
 ### Export to Excel
-
-An export modal lets you choose what to include:
 
 | Mode | Sheets generated |
 |---|---|
@@ -77,22 +94,22 @@ An export modal lets you choose what to include:
 | **Wealth** | Net worth · P&L per asset · Asset allocation |
 | **Both** | All six sheets combined |
 
-The file is generated client-side with colour-coded cells and conditional formatting bars — no server round-trip needed.
+Generated client-side — no server round-trip needed.
 
 ---
 
 ### Light / Dark Mode
 
-A toggle in the top-right header switches between light and dark themes. The preference is saved to `localStorage` and restored on next visit. The switch is instantaneous — CSS variables on the root element (`--bg`, `--card`, `--text`, etc.) flip, so every component updates without a page reload.
+Toggle in the top-right header. Preference saved to `localStorage`. CSS variables on the root element flip instantly — no page reload.
 
 ---
 
 ### Auto-capture & PWA
 
-- **iOS Shortcuts** — bank SMS alerts are forwarded to the app automatically (no copy-paste)
-- **Google Apps Script** — polls Gmail every 15 minutes for bank alert emails
-- **Installable PWA** — add to Home Screen on iPhone for a native-app feel
-- **Offline support** — transactions are cached in `localStorage` and sync to Supabase when connectivity returns
+- **iOS Shortcuts** — bank SMS alerts forwarded automatically
+- **Google Apps Script** — polls Gmail every 15 minutes
+- **Installable PWA** — Add to Home Screen on iPhone
+- **Offline support** — transactions cached in `localStorage`, sync to Supabase on reconnect
 
 ---
 
@@ -117,47 +134,17 @@ npm install
 ### 2. Supabase — create the database
 
 1. Go to [supabase.com](https://supabase.com) and create a **free** project.
-2. Open **SQL Editor** in your project and run the following schema:
-
-```sql
-create table transactions (
-  id uuid primary key default gen_random_uuid(),
-  created_at timestamptz default now(),
-  transaction_at timestamptz not null,
-  amount numeric(12,2) not null,
-  type text not null check (type in ('income','expense')),
-  category text,
-  source text,
-  description text,
-  raw_text text,
-  account_last4 text,
-  balance_after numeric(12,2)
-);
-
-create table balance_snapshots (
-  id uuid primary key default gen_random_uuid(),
-  created_at timestamptz default now(),
-  snapshot_at timestamptz not null default now(),
-  actual_balance numeric(12,2) not null,
-  note text
-);
-
-create table wealth_manual (
-  key text primary key,
-  value numeric(14,2) not null,
-  note text,
-  updated_at timestamptz not null default now()
-);
-
-create index transactions_type_idx on transactions(type);
-create index transactions_at_idx on transactions(transaction_at desc);
-create index transactions_created_idx on transactions(created_at desc);
-```
-
+2. Open **SQL Editor** and run the full contents of `lib/schema.sql`. This creates:
+   - `transactions`, `balance_snapshots`, `wealth_manual` — all with RLS (each user sees only their own rows)
+   - `user_profiles` — stores `role: user | admin`
+   - A trigger that auto-creates a profile on every new signup
 3. Go to **Project Settings → API** and copy:
    - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
    - **anon / public key** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - **service_role key** → `SUPABASE_SERVICE_KEY`
+4. Go to **Authentication → URL Configuration** and set:
+   - **Site URL**: `http://localhost:3000`
+   - Add your production domain to **Redirect URLs** before deploying
 
 ### 3. Environment variables
 
@@ -165,114 +152,75 @@ create index transactions_created_idx on transactions(created_at desc);
 cp .env.local.example .env.local
 ```
 
-Open `.env.local` and fill in:
-
 | Variable | Where to get it | Required |
 |---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API → Project URL | ✅ |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Project Settings → API → anon/public key | ✅ |
-| `SUPABASE_SERVICE_KEY` | Supabase → Project Settings → API → service_role key | ✅ |
-| `API_SECRET_KEY` | Generate yourself (see below) | ✅ |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API | ✅ |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Project Settings → API | ✅ |
+| `SUPABASE_SERVICE_KEY` | Supabase → Project Settings → API | ✅ |
+| `API_SECRET_KEY` | `openssl rand -hex 16` | ✅ |
+| `ADMIN_EMAIL` | Email address for the admin account | ✅ |
+| `ADMIN_PASSWORD` | Password for the admin account — change before deploying | ✅ |
+| `SMS_WEBHOOK_ALLOWED_EMAILS` | Comma-separated emails that may trigger the SMS webhook | Optional |
+| `EMAIL_WEBHOOK_ALLOWED_EMAILS` | Comma-separated emails that may trigger the email webhook | Optional |
 | `ZERODHA_API_KEY` | [kite.trade/developers](https://kite.trade/developers) | Optional |
 | `ZERODHA_API_SECRET` | Same as above | Optional |
 | `COINDCX_API_KEY` | [coindcx.com/api](https://coindcx.com/api) | Optional |
 | `COINDCX_API_SECRET` | Same as above | Optional |
+| `COINDCX_OWNER_EMAIL` | Email of the user who owns the CoinDCX account | Optional |
 
-**Generate `API_SECRET_KEY`** — this is a shared secret between the app and your iOS Shortcut / Google Apps Script:
+### 4. Create the admin user
 
 ```bash
-openssl rand -hex 16
+node scripts/seed-admin.mjs
 ```
 
-Paste the output as the value.
+Reads `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env.local` and creates the user in Supabase Auth with `role: admin`.
 
-### 4. Run the dev server
+### 5. Run the dev server
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000) and log in with your admin credentials.
 
 ---
 
 ## Deployment (Netlify)
 
-### One-time setup
+See [NETLIFY_DEPLOY.md](NETLIFY_DEPLOY.md) for the full step-by-step guide.
 
-1. **Push to GitHub** — if not already done:
-   ```bash
-   git remote add origin https://github.com/YOUR_USERNAME/finance-management.git
-   git push -u origin master
-   ```
-
-2. **Create Netlify account** — go to [netlify.com](https://netlify.com) and sign up with GitHub.
-
-3. **Import project**:
-   - Click **Add new site** → **Import an existing project** → **Deploy with GitHub**
-   - Select your `finance-management` repository
-
-4. **Configure build**:
-   - **Branch**: `master`
-   - **Build command**: `npm run build`
-   - **Publish directory**: `.next`
-
-5. **Add environment variables** — click **Show advanced** and add all keys from your `.env.local`:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_KEY`
-   - `API_SECRET_KEY`
-   - `ZERODHA_API_KEY`, `ZERODHA_API_SECRET` (if using)
-   - `COINDCX_API_KEY`, `COINDCX_API_SECRET` (if using)
-
-6. **Zerodha OAuth** (if you're using Kite Connect) — add this to [kite.trade/developers](https://kite.trade/developers) under **Redirect URLs**:
-   ```
-   https://your-project.netlify.app/api/kite/callback
-   ```
-
-7. Click **Deploy site** — wait 2–4 minutes. Your live URL will appear (e.g., `https://your-project.netlify.app`).
-
-### Auto-deploy
-
-Every push to `master` triggers a Netlify rebuild automatically. Just:
-
-```bash
-git add . && git commit -m "your changes" && git push
-```
+Quick summary:
+1. Push to GitHub
+2. Import at netlify.com → build command `npm run build`, publish dir `.next`
+3. Add all env variables (including `ADMIN_EMAIL`, `ADMIN_PASSWORD`)
+4. Deploy
+5. Run `node scripts/seed-admin.mjs` once pointing at your production Supabase project
+6. In Supabase → Authentication → URL Configuration, add your Netlify URL to Redirect URLs
 
 ---
 
 ## iOS Shortcut — Auto-capture bank SMS
 
-Set this up to have bank SMS messages automatically sent to FinTrack.
-
-1. Open **Shortcuts** app → **Automation** → **+** → **Message**
-2. Set **Sender** to your bank's SMS sender ID (e.g. `HDFCBK`, `ICICIB`, `AXISBK`, `GPAY`)
+1. **Shortcuts** app → **Automation** → **+** → **Message**
+2. Set **Sender** to your bank's SMS ID (e.g. `HDFCBK`, `ICICIB`, `AXISBK`, `GPAY`)
 3. Enable **Run Immediately** (disable "Ask Before Running")
 4. Add action: **Get Contents of URL**
    - URL: `https://your-project.netlify.app/api/sms`
    - Method: `POST`
    - Headers: `Content-Type: application/json`
-   - Body (JSON):
+   - Body:
      ```json
-     {
-       "sms_text": "<Shortcut Input>",
-       "api_key": "your-API_SECRET_KEY"
-     }
+     { "sms_text": "<Shortcut Input>", "api_key": "your-API_SECRET_KEY" }
      ```
-   Use the **Shortcut Input** variable for `sms_text`.
-5. Tap **Done**.
-
-Repeat for each bank sender you want to track.
+5. Tap **Done**. Repeat for each bank sender.
 
 ---
 
 ## Google Apps Script — Auto-capture bank emails
 
-This polls your Gmail every 15 minutes for bank alert emails.
-
 1. Open [script.google.com](https://script.google.com) → **New Project**
-2. Paste the following code:
+2. Paste:
 
 ```javascript
 const WEBHOOK_URL = 'https://your-project.netlify.app/api/email';
@@ -304,9 +252,7 @@ function pollBankEmails() {
             payload: JSON.stringify({ subject: msg.getSubject(), body: msg.getPlainBody(), api_key: API_KEY }),
             muteHttpExceptions: true,
           });
-        } catch (e) {
-          Logger.log('Error: ' + e);
-        }
+        } catch (e) { Logger.log('Error: ' + e); }
       }
       thread.addLabel(label);
     }
@@ -319,9 +265,7 @@ function createTrigger() {
 }
 ```
 
-3. Replace `WEBHOOK_URL` and `API_KEY` with your values.
-4. Run `createTrigger()` once to install the polling trigger.
-5. Grant Gmail read + URL fetch permissions when prompted.
+3. Replace `WEBHOOK_URL` and `API_KEY`. Run `createTrigger()` once. Grant permissions.
 
 ---
 
@@ -331,9 +275,13 @@ function createTrigger() {
 |---|---|---|---|
 | `POST` | `/api/sms` | `api_key` | Ingest a bank SMS |
 | `POST` | `/api/email` | `api_key` | Ingest a bank email |
-| `GET` | `/api/transactions` | None | List transactions |
-| `POST` | `/api/transactions` | None | Add a manual transaction |
-| `DELETE` | `/api/transactions/[id]` | None | Delete a transaction |
+| `GET` | `/api/transactions` | Session | List transactions (scoped to user) |
+| `POST` | `/api/transactions` | Session | Add a manual transaction |
+| `DELETE` | `/api/transactions/[id]` | Session | Delete a transaction |
+| `GET` | `/api/balance` | Session | Get balance snapshots |
+| `GET` | `/api/auth/is-admin` | Session | Check if caller is admin |
+| `GET` | `/api/admin/stats` | Admin session | Platform-wide stats |
+| `GET` | `/api/admin/users` | Admin session | List all users |
 
 **GET /api/transactions query params**
 
@@ -346,26 +294,13 @@ function createTrigger() {
 
 ---
 
-## Transaction Categories
-
-| Category | Use for |
-|---|---|
-| Food | Restaurants, groceries, Zomato, Swiggy |
-| Transport | Uber, Ola, fuel, metro |
-| Shopping | Amazon, Flipkart, retail |
-| Bills | Electricity, phone, subscriptions |
-| Salary | Monthly salary credit |
-| Transfer | NEFT / IMPS transfers |
-| Other | Everything else |
-
----
-
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
 | Framework | Next.js 14 (App Router) |
-| Database | Supabase (Postgres) |
+| Auth | Supabase Auth (email/password + sessions) |
+| Database | Supabase (Postgres + Row Level Security) |
 | Styling | Tailwind CSS |
 | Charts | Recharts |
 | PWA | next-pwa |
