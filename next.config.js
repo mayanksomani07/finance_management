@@ -3,8 +3,6 @@ const withPWA = require('next-pwa')({
   dest: 'public',
   register: true,
   skipWaiting: true,
-  buildExcludes: [/middleware-manifest\.json$/],
-  cacheId: 'v2',
   disable: process.env.NODE_ENV === 'development',
   // Exclude all /api/ routes from SW caching — they are auth-gated and user-specific.
   // Caching them risks serving stale data from a previous user's session.
