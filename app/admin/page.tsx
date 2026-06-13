@@ -37,7 +37,7 @@ function ProviderIcon({ provider }: { provider: string }) {
     </svg>
   );
   if (provider === 'github') return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="#6e40c9">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="var(--text2)">
       <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
     </svg>
   );
@@ -52,7 +52,7 @@ function ProviderIcon({ provider }: { provider: string }) {
     </svg>
   );
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--admin-email-icon)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="4" width="20" height="16" rx="2"/>
       <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
     </svg>
@@ -222,7 +222,7 @@ export default function AdminDashboard() {
         {/* ── KPI grid ── */}
         {kpis && (
           <div style={{ marginBottom: 28 }}>
-            <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.13em', textTransform: 'uppercase', color: 'var(--text4)', marginBottom: 12 }}>
+            <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.13em', textTransform: 'uppercase', color: 'var(--text3)', marginBottom: 12 }}>
               Overview
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -244,7 +244,7 @@ export default function AdminDashboard() {
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 10, lineHeight: 1 }}>
                     {c.label}
                   </div>
-                  <div style={{ fontSize: 11, fontWeight: 400, color: 'var(--text3)', marginTop: 3 }}>
+                  <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--text3)', marginTop: 3 }}>
                     {c.sub}
                   </div>
                 </div>
@@ -256,7 +256,7 @@ export default function AdminDashboard() {
         {/* ── Users section ── */}
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.13em', textTransform: 'uppercase', color: 'var(--text4)', margin: 0 }}>
+            <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.13em', textTransform: 'uppercase', color: 'var(--text3)', margin: 0 }}>
               Registered Users
             </p>
             <span style={{
@@ -271,7 +271,7 @@ export default function AdminDashboard() {
           <div style={{ position: 'relative', marginBottom: 14 }}>
             <svg style={{
               position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
-              pointerEvents: 'none', color: 'var(--text4)',
+              pointerEvents: 'none', color: 'var(--text3)',
             }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
             </svg>
@@ -280,6 +280,7 @@ export default function AdminDashboard() {
               placeholder="Search name or email…"
               value={search}
               onChange={e => setSearch(e.target.value)}
+              className="admin-search"
               style={{
                 width: '100%', boxSizing: 'border-box',
                 paddingLeft: 40, paddingRight: 16, paddingTop: 11, paddingBottom: 11,
@@ -347,7 +348,7 @@ export default function AdminDashboard() {
                       )}
                     </div>
                     <p style={{
-                      fontSize: 12, fontWeight: 400, color: 'var(--text3)',
+                      fontSize: 12, fontWeight: 500, color: 'var(--text3)',
                       marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }}>
                       {u.email}
@@ -371,13 +372,13 @@ export default function AdminDashboard() {
                     <span style={{
                       fontSize: 11, fontWeight: 700,
                       padding: '3px 10px', borderRadius: 99,
-                      background: 'rgba(59,130,246,0.10)', color: '#3b82f6',
-                      border: '1px solid rgba(59,130,246,0.22)',
+                      background: 'var(--admin-txns-bg)', color: 'var(--admin-txns-text)',
+                      border: '1px solid var(--admin-txns-border)',
                     }}>{u.tx_count} txns</span>
 
                     <div style={{ textAlign: 'right' }}>
                       <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', lineHeight: 1.4, margin: 0 }}>{date}</p>
-                      <p style={{ fontSize: 11, fontWeight: 400, color: 'var(--text3)', lineHeight: 1.4, margin: 0 }}>{time}</p>
+                      <p style={{ fontSize: 11, fontWeight: 500, color: 'var(--text3)', lineHeight: 1.4, margin: 0 }}>{time}</p>
                     </div>
 
                     {!isAdminUser && (
@@ -389,8 +390,8 @@ export default function AdminDashboard() {
                             style={{
                               fontSize: 12, fontWeight: 700,
                               padding: '5px 12px', borderRadius: 10, cursor: 'pointer',
-                              background: 'rgba(239,68,68,0.10)', color: '#ef4444',
-                              border: '1.5px solid rgba(239,68,68,0.30)',
+                              background: 'var(--admin-remove-bg)', color: 'var(--admin-remove-text)',
+                              border: '1.5px solid var(--admin-remove-border)',
                             }}>
                             {isRemoving ? '…' : 'Confirm'}
                           </button>
@@ -432,7 +433,7 @@ export default function AdminDashboard() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                    strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text4)' }}>
+                    strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text3)' }}>
                     <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
                   </svg>
                 </div>
@@ -466,7 +467,7 @@ export default function AdminDashboard() {
             }}>
             <div style={{
               width: 48, height: 48, borderRadius: 16, margin: '0 auto 16px',
-              background: 'rgba(108,99,255,0.10)', border: '1.5px solid rgba(108,99,255,0.22)',
+              background: 'var(--accent-bg)', border: '1.5px solid var(--accent-border)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -476,7 +477,7 @@ export default function AdminDashboard() {
               </svg>
             </div>
             <p style={{ fontSize: 16, fontWeight: 800, textAlign: 'center', color: 'var(--text)', margin: '0 0 4px' }}>Sign out?</p>
-            <p style={{ fontSize: 13, textAlign: 'center', color: 'var(--text3)', margin: '0 0 24px', fontWeight: 400 }}>
+            <p style={{ fontSize: 13, textAlign: 'center', color: 'var(--text3)', margin: '0 0 24px', fontWeight: 500 }}>
               You&apos;ll be returned to the login screen. Your data is safely saved.
             </p>
             <div style={{ display: 'flex', gap: 10 }}>

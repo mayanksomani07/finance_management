@@ -77,6 +77,15 @@
   --hero-stat-inv-bg:         rgba(245,158,11,0.15);
   --hero-stat-inv-border:     rgba(245,158,11,0.25);
   --hero-stat-inv-val:        #fbbf24;
+
+  /* Admin dashboard — dark-mode defaults */
+  --admin-txns-bg:      rgba(59,130,246,0.14);
+  --admin-txns-border:  rgba(59,130,246,0.30);
+  --admin-txns-text:    #60a5fa;
+  --admin-remove-bg:    rgba(239,68,68,0.12);
+  --admin-remove-text:  #f87171;
+  --admin-remove-border:rgba(239,68,68,0.32);
+  --admin-email-icon:   #7c6ef5;
 }
 
 /* ─── Light theme ──────────────────────────────────────────────────────── */
@@ -155,15 +164,25 @@
   --hero-stat-inv-bg:         rgba(146,64,14,0.08);
   --hero-stat-inv-border:     rgba(180,83,9,0.22);
   --hero-stat-inv-val:        #92400e;
+
+  /* Admin dashboard — light-mode overrides */
+  --admin-txns-bg:      rgba(59,130,246,0.10);
+  --admin-txns-border:  rgba(59,130,246,0.28);
+  --admin-txns-text:    #1d4ed8;
+  --admin-remove-bg:    rgba(220,38,38,0.08);
+  --admin-remove-text:  #b91c1c;
+  --admin-remove-border:rgba(220,38,38,0.28);
+  --admin-email-icon:   #4f46e5;
 }
 
 * { box-sizing: border-box; }
 
 .admin-nav-email {
-  color: #9ca3af; /* neutral grey — light mode */
+  color: var(--text3);
 }
-[data-theme='light'] .admin-nav-email {
-  color: #6b7280; /* proper dark neutral grey on white navbar */
+
+.admin-search::placeholder {
+  color: var(--text4);
 }
 
 body {
