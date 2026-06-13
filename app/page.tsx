@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -1425,8 +1426,13 @@ function ssSet(key: string, val: unknown) {
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function TransactionsPage() {
-  const { user, signOut: doSignOut } = useAuth();
+  const router = useRouter();
+  const { user, loading, signOut: doSignOut } = useAuth();
   const canImportExcel = isSpecialUser(user?.email);
+
+  useEffect(() => {
+    if (!loading && !user) router.replace('/login');
+  }, [user, loading, router]);
   const showBottomNav = !!user?.email && isWealthUser(user.email);
 
   const [excelTxs, setExcelTxs]   = useState<LocalTransaction[]>([]);
